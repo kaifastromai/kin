@@ -52,6 +52,21 @@ impl Kind {
         }
     }
 }
+impl std::fmt::Display for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Kind::Parent => write!(f, "P"),
+            Kind::Child => write!(f, "C"),
+            Kind::Sibling => write!(f, "S"),
+            Kind::Repat => write!(f, "R"),
+        }
+    }
+}
+impl std::fmt::Debug for Kind {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        <Self as std::fmt::Display>::fmt(self, f)
+    }
+}
 //This represents the location of the person in the family tree.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct Location {
@@ -327,13 +342,23 @@ impl KinGraph {
         //We do a DFS, and store every path that ends in the goal node. When we find the goal,
         //we stop the search on that chain of dfs.
         let mut visited = BTreeSet::<NodeIndex<usize>>::new();
+        let mut taken_paths = BTreeMap::<NodeIndex<usize>, Vec<NodeIndex<usize>>>::new();
         let mut stack = VecDeque::<NodeIndex<usize>>::new();
         stack.push_back(p1x);
         let mut cur_path = Vec::<(NodeIndex<usize>, Kind)>::new();
         while !stack.is_empty() {
             let cur = *stack.back().unwrap();
-
-            if visited.contains(&cur) {
+            let cur_taken = taken_paths
+                .entry(cur)
+                .or_insert(Vec::<NodeIndex<usize>>::new());
+            //check if we are at the goal
+            if cur == goalx {
+                //add cur_path to paths
+                paths.push(cur_path.clone());
+                //our new cur_path is the cur_path minus the last element
+                cur_path.pop();
+                stack.pop_back();
+                //and go back to see if there are others
                 continue;
             }
 
@@ -344,9 +369,9 @@ impl KinGraph {
                 .neighbors_directed(cur, Direction::Outgoing)
                 .collect::<Vec<NodeIndex<usize>>>();
 
-            let previous_path_ending = |n: usize| {
-                if !&paths.is_empty() {
-                    for p in paths.iter() {
+            let previous_path_ending = |pths: &Vec<Vec<(NodeIndex<usize>, Kind)>>, n: usize| {
+                if !&pths.is_empty() {
+                    for p in pths.iter() {
                         if p.iter()
                             .map(|x| x.0)
                             .collect::<Vec<NodeIndex<usize>>>()
@@ -358,17 +383,58 @@ impl KinGraph {
                 }
                 false
             };
-            while next_i < nit.len() && visited.contains(&nit[next_i])
-                || previous_path_ending(next_i)
+            //gets the path that this node belongs if it belongs to any, returns an Option<(usize,&Vec<NodeIndex<usize>)>
+            let contained_in_path = |pths: &Vec<Vec<(NodeIndex<usize>, Kind)>>, n: usize| {
+                for p in pths.iter() {
+                    for (i, x) in p.iter().enumerate() {
+                        if x.0 == nit[n] {
+                            return Some((i, p.clone()));
+                        }
+                    }
+                }
+                None
+            };
+            while next_i < nit.len()
+                && (visited.contains(&nit[next_i]) || previous_path_ending(&paths, next_i))
             {
+                //if this next node is not a path we have already taken, and it is part of a successful path, merge
+                //the current path with said successful path
+                if let Some((i, mut p)) = contained_in_path(&paths, next_i) {
+                    if !cur_taken.contains(&nit[next_i]) {
+                        cur_taken.push(nit[next_i]);
+                        let new_relation = self
+                            .graph
+                            .edges_connecting(nit[next_i], cur)
+                            .next()
+                            .unwrap()
+                            .weight();
+
+                        //debugging purposes
+                        let index = i;
+                        let mut n_path = p;
+                        n_path.remove(index);
+                        paths.push(n_path);
+                        cur_path.pop();
+                        //pop back and continue
+                        stack.pop_back();
+                        continue;
+                    }
+                }
                 next_i += 1;
             }
 
             if next_i == nit.len() {
                 //At the end of this path, go back
                 stack.pop_back();
+                cur_path.pop();
                 continue;
             }
+            cur_taken.push(nit[next_i]);
+            //TO prevent backtracking
+            let next_taken = taken_paths
+                .entry(nit[next_i])
+                .or_insert(Vec::<NodeIndex<usize>>::new());
+            next_taken.push(cur);
 
             //add the edge to the path
             let edge = self
@@ -378,16 +444,7 @@ impl KinGraph {
                 .unwrap()
                 .weight();
             cur_path.push((nit[next_i], *edge));
-            //check if next is goal
-            if nit[next_i] == goalx {
-                //add cur_path to paths
-                paths.push(cur_path.clone());
-                //our new cur_path is the cur_path minus the last element
-                cur_path.pop();
-                stack.pop_back();
-                //and go back to see if there are others
-                continue;
-            }
+
             stack.push_back(nit[next_i]);
         }
 
@@ -550,6 +607,8 @@ mod test_kin {
         kg.add_relation(&p5, &p6, Kind::Parent);
 
         kg.build_map(&p0);
-        kg.find_all_paths(&p0, &p3);
+        for (i, p) in kg.find_all_paths(&p0, &p6).unwrap().iter().enumerate() {
+            println!("Path {:} \n{:?}", i, p);
+        }
     }
 }
