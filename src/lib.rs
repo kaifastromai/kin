@@ -153,6 +153,11 @@ pub struct KinGraph {
     id_indx: BTreeMap<usize, NodeIndex<usize>>,
     depth_map: Option<BTreeMap<Person, Location>>,
 }
+pub trait VectorExt<T> {
+    //Returns the first index of T, or None if not found
+    fn index_of(&self, item: &T) -> Option<usize>;
+}
+
 impl KinGraph {
     fn new() -> Self {
         KinGraph {
@@ -325,9 +330,43 @@ impl KinGraph {
         path
     }
 
-    ///Finds all paths between two people, returns a vec of vec [Kind]'s
-    /// This should allow us to include relationships arising from various levels of incest/intermarriage (e.g. there are cycles in the graph)
-    pub fn find_all_paths(
+    ///Finds all paths between two people, with an internal maximum of the order of the graph
+    pub fn find_all_paths_bfs(
+        &self,
+        p1: &Person,
+        p2: &Person,
+    ) -> Result<Vec<Vec<(NodeIndex<usize>, Kind)>>> {
+        let graph_order = self.graph.node_count();
+        let p1x = self.idx(p1).unwrap();
+        let goalx = self.idx(p2).unwrap();
+        let mut paths = Vec::<Vec<(NodeIndex<usize>, Kind)>>::new();
+
+        let sps = simple_paths::all_simple_paths(&self.graph, p1x, goalx, 0, None)
+            .collect::<Vec<Vec<_>>>();
+
+        //reconstruct all the path kinds from the sps
+        let mut rc_paths = |path: &Vec<NodeIndex<usize>>| {
+            let mut p = Vec::<(NodeIndex<usize>, Kind)>::new();
+            for i in 0..path.len() - 1 {
+                let e = self
+                    .graph
+                    .edges_connecting(path[i], path[i + 1])
+                    .collect::<Vec<_>>();
+                //simple case, only one outgoing edge between two nodes
+                if e.len() == 1 {
+                    p.push((path[i], *e[0].weight()));
+                }
+            }
+            paths.push(p);
+        };
+        for p in sps {
+            rc_paths(&p);
+        }
+
+        Ok(paths)
+    }
+    ///Does *NOT* find all paths because frickin' DFS!
+    pub fn find_some_paths(
         &self,
         p1: &Person,
         p2: &Person,
@@ -607,7 +646,7 @@ mod test_kin {
         kg.add_relation(&p5, &p6, Kind::Parent);
 
         kg.build_map(&p0);
-        for (i, p) in kg.find_all_paths(&p0, &p6).unwrap().iter().enumerate() {
+        for (i, p) in kg.find_all_paths_bfs(&p0, &p6).unwrap().iter().enumerate() {
             println!("Path {:} \n{:?}", i, p);
         }
     }
