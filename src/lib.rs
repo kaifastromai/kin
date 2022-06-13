@@ -14,15 +14,10 @@ use itertools::Itertools;
 type Nd = NodeIndex<usize>;
 use anyhow::*;
 use indexmap::IndexSet;
-use petgraph::adj::EdgeReference;
 use petgraph::algo::*;
 use petgraph::prelude::*;
-use petgraph::visit::IntoEdgeReferences;
-use petgraph::visit::IntoEdgesDirected;
 use states::*;
 use std::collections::HashMap;
-use std::collections::HashSet;
-use std::io::Write;
 use std::iter::from_fn;
 use std::iter::FromFn;
 use std::{
@@ -61,387 +56,7 @@ pub enum ETransitionStates {
     ///The stop state. Indicates that there is no more relationship.
     STOP,
 }
-mod states {
-    use super::*;
-    type Transition = (Kind, Box<dyn State>);
-    ///Represents a possible state, and describes the possible transitions from that state.
-    pub trait State {
-        ///Returns an iterator over all possible states that can be reached from this state.
-        fn transitions(&self) -> Vec<Transition>;
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>>;
-        fn print_canonical_name(&self) -> String;
-    }
-
-    ///An nth level parent (Parent, grandparent, great-grandparent, etc.)
-    pub struct ParentState {}
-    impl State for ParentState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(NParentState { n: 1 })),
-                (Kind::Child, Box::new(RepatState {})),
-                (Kind::Repat, Box::new(NPinLState { n: 1 })),
-                (Kind::Sibling, Box::new(ParentState {})),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(NParentState { n: 1 }),
-                Kind::Child => Box::new(RepatState {}),
-                Kind::Repat => Box::new(NPinLState { n: 0 }),
-                Kind::Sibling => Box::new(ParentState {}),
-                _ => panic!("Invalid transition"),
-            };
-            Some(res)
-        }
-        fn print_canonical_name(&self) -> String {
-            "Parent".to_string()
-        }
-    }
-
-    pub struct NParentState {
-        n: usize,
-    }
-    impl State for NParentState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(NParentState { n: self.n + 1 })),
-                (Kind::Child, Box::new(NPinLState { n: self.n - 1 })),
-                (Kind::Repat, Box::new(NPinLState { n: self.n + 1 })),
-                (Kind::Sibling, Box::new(NParentState { n: self.n })),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(NParentState { n: self.n + 1 }),
-                Kind::Child => Box::new(NPinLState { n: self.n - 1 }),
-                Kind::Repat => Box::new(NPinLState { n: self.n + 1 }),
-                Kind::Sibling => Box::new(NParentState { n: self.n }),
-                _ => panic!("Invalid transition"),
-            };
-            Some(res)
-        }
-        fn print_canonical_name(&self) -> String {
-            let g = match self.n {
-                1 => "grand".to_string(),
-                _ => {
-                    let greats_string = "great-".repeat(self.n - 1);
-                    greats_string + "grand"
-                }
-            };
-            format!("{}-{}", g, "parent")
-        }
-    }
-
-    ///Nth parent in law state
-    pub struct NPinLState {
-        n: usize,
-    }
-    impl State for NPinLState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(NParentState { n: self.n + 1 })),
-                (Kind::Child, Box::new(StopState {})),
-                (Kind::Repat, Box::new(NPinLState { n: self.n })),
-                (Kind::Repat, Box::new(StopState {})),
-                (Kind::Sibling, Box::new(NParentState { n: self.n })),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(NParentState { n: self.n + 1 }),
-                Kind::Child => Box::new(StopState {}),
-                Kind::Repat => Box::new(NPinLState { n: self.n }),
-                Kind::Sibling => Box::new(NParentState { n: self.n }),
-                _ => panic!("Invalid transition"),
-            };
-            Some(res)
-        }
-        fn print_canonical_name(&self) -> String {
-            let g = match self.n {
-                0 => "".to_string(),
-                1 => "grand".to_string(),
-                _ => {
-                    let greats_string = "great-".repeat(self.n - 1);
-                    greats_string + "grand"
-                }
-            };
-            format!("{}-{}", g, "parent-in-law")
-        }
-    }
-    pub struct ChildState {}
-    impl State for ChildState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(SiblingState {})),
-                (Kind::Parent, Box::new(StopState {})),
-                (Kind::Child, Box::new(NChildState { n: 1 })),
-                (Kind::Repat, Box::new(ChildState {})),
-                (Kind::Repat, Box::new(StopState {})),
-                (Kind::Sibling, Box::new(NNeniState { n: 0 })),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(SiblingState {}),
-                Kind::Child => Box::new(NChildState { n: 1 }),
-                Kind::Repat => {
-                    if kg_state.is_parent(kind.0, kind.2) {
-                        Box::new(ChildState {})
-                    } else {
-                        Box::new(StopState {})
-                    }
-                }
-                Kind::Sibling => Box::new(NNeniState { n: 0 }),
-                _ => panic!("Invalid transition"),
-            };
-            Some(res)
-        }
-        fn print_canonical_name(&self) -> String {
-            "Child".to_string()
-        }
-    }
-    pub struct NChildState {
-        n: usize,
-    }
-    impl State for NChildState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(NNeniState { n: self.n - 1 })),
-                (Kind::Parent, Box::new(StopState {})),
-                (Kind::Child, Box::new(NChildState { n: self.n + 1 })),
-                (Kind::Repat, Box::new(NChildState { n: self.n + 1 })),
-                (Kind::Sibling, Box::new(NAuncleState { n: self.n })),
-                (Kind::Sibling, Box::new(NNeniState { n: 0 })),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => {
-                    let shares_parents = kg_state.b_share_parents(kind.0, kind.2);
-                    if shares_parents {
-                        Box::new(NNeniState { n: self.n - 1 })
-                    } else {
-                        //This should be Half-Siibling, but we'll takle that later
-                        todo!("Implement half-siblings")
-                    }
-                }
-                Kind::Child => Box::new(NChildState { n: self.n + 1 }),
-                Kind::Sibling => Box::new(NAuncleState { n: self.n }),
-                Kind::Repat => {
-                    if kg_state.is_parent(kind.0, kind.2) {
-                        Box::new(NChildState { n: self.n + 1 })
-                    } else {
-                        todo!("Case not handled yet!")
-                    }
-                }
-            };
-            Some(res)
-        }
-        fn print_canonical_name(&self) -> String {
-            let g = match self.n {
-                0 => "".to_string(),
-                1 => "great".to_string(),
-                _ => {
-                    let greats_string = "great-".repeat(self.n - 1);
-                    greats_string + "great"
-                }
-            };
-            format!("{}-{}", g, "child")
-        }
-    }
-
-    ///Nth child in law
-    pub struct NCinLState {
-        n: usize,
-    }
-    pub struct HalfSiblingState {}
-
-    pub struct SiblingState {}
-
-    impl State for SiblingState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(NNeniState { n: 0 })),
-                (Kind::Child, Box::new(ChildState {})),
-                (Kind::Repat, Box::new(SinLState {})),
-                (Kind::Sibling, Box::new(SiblingState {})),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(NNeniState { n: 0 }),
-                Kind::Child => Box::new(ChildState {}),
-                Kind::Repat => Box::new(SinLState {}),
-                Kind::Sibling => Box::new(SiblingState {}),
-                _ => panic!("Invalid transition"),
-            };
-            Some(res)
-        }
-        fn print_canonical_name(&self) -> String {
-            "Sibling".to_string()
-        }
-    }
-
-    pub struct RepatState {}
-    impl State for RepatState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(StopState {})),
-                (Kind::Child, Box::new(StopState {})),
-                (Kind::Repat, Box::new(StopState {})),
-                (Kind::Sibling, Box::new(SinLState {})),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(StopState {}),
-                Kind::Child => Box::new(StopState {}),
-                Kind::Repat => Box::new(StopState {}),
-                Kind::Sibling => Box::new(SinLState {}),
-                _ => panic!("Invalid transition"),
-            };
-            Some(res)
-        }
-        fn print_canonical_name(&self) -> String {
-            "Reproductive Partner/Spouse".to_string()
-        }
-    }
-
-    pub struct SinLState {}
-    impl State for SinLState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(NParentState { n: 1 })),
-                (Kind::Child, Box::new(RepatState {})),
-                (Kind::Repat, Box::new(StopState {})),
-                (Kind::Sibling, Box::new(SinLState {})),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(NParentState { n: 1 }),
-                Kind::Child => Box::new(RepatState {}),
-                Kind::Repat => Box::new(StopState {}),
-                Kind::Sibling => Box::new(SinLState {}),
-                _ => panic!("Invalid transition"),
-            };
-            Some(res)
-        }
-        fn print_canonical_name(&self) -> String {
-            "Sibling in Law".to_string()
-        }
-    }
-    ///Nephew/Niece state
-    pub struct NNeniState {
-        n: usize,
-    }
-    impl State for NNeniState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(NNeniState { n: self.n })),
-                (Kind::Child, Box::new(NChildState { n: self.n + 1 })),
-                (Kind::Repat, Box::new(StopState {})),
-                (Kind::Sibling, Box::new(NNeniState { n: self.n })),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            todo!("Implement nephew/niece transitions")
-            // match kind.1 {
-            //     Kind::Parent => Box::new(NNeniState { n: self.n }),
-            //     Kind::Child => Box::new(NChildState { n: self.n + 1 }),
-            //     Kind::Repat => Box::new(StopState {}),
-            //     Kind::Sibling => Box::new(NNeniState { n: self.n }),
-            //     _ => panic!("Invalid transition"),
-            // }
-        }
-        fn print_canonical_name(&self) -> String {
-            let g = match self.n {
-                0 => "".to_string(),
-                1 => "great".to_string(),
-                _ => {
-                    let greats_string = "great-".repeat(self.n - 1);
-                    greats_string + "great"
-                }
-            };
-            format!("{}-{}", g, "nephew/niece")
-        }
-    }
-    ///Aunt/uncle state
-    pub struct NAuncleState {
-        n: usize,
-    }
-    impl State for NAuncleState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![
-                (Kind::Parent, Box::new(NAuncleState { n: self.n })),
-                (Kind::Child, Box::new(NAuncleState { n: self.n })),
-                (Kind::Repat, Box::new(StopState {})),
-                (Kind::Sibling, Box::new(NAuncleState { n: self.n })),
-            ]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            todo!("Implement aunt/uncle transitions")
-            // match kind.1 {
-            //     Kind::Parent => Box::new(NAuncleState { n: self.n }),
-            //     Kind::Child => Box::new(NAuncleState { n: self.n }),
-            //     Kind::Repat => Box::new(StopState {}),
-            //     Kind::Sibling => Box::new(NAuncleState { n: self.n }),
-            //     _ => panic!("Invalid transition"),
-            // }
-        }
-        fn print_canonical_name(&self) -> String {
-            let g = match self.n {
-                0 => "".to_string(),
-                1 => "great".to_string(),
-                _ => {
-                    let greats_string = "great-".repeat(self.n - 1);
-                    greats_string + "great"
-                }
-            };
-            format!("{}-{}", g, "aunt/uncle")
-        }
-    }
-    pub struct StopState {}
-    impl State for StopState {
-        fn transitions(&self) -> Vec<Transition> {
-            vec![]
-        }
-        fn transition(&self, kind: (Nd, Kind, Nd), kg_state: &KinGraph) -> Option<Box<dyn State>> {
-            None
-        }
-        fn print_canonical_name(&self) -> String {
-            "Stop".to_string()
-        }
-    }
-    pub struct StateMachine {
-        current_state: Option<Box<dyn State>>,
-    }
-    impl StateMachine {
-        pub fn new() -> Self {
-            StateMachine {
-                current_state: None,
-            }
-        }
-        ///Change the state according to the kind input
-        pub fn transition(&mut self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<()> {
-            if self.current_state.is_none() {
-                self.current_state = Some(kind.1.into_base_state());
-                Some(())
-            } else {
-                let mut new_state = self.current_state.as_mut().unwrap().transition(kind, kg);
-                if new_state.is_none() {
-                    None
-                } else {
-                    self.current_state = new_state;
-                    Some(())
-                }
-            }
-        }
-        pub fn print_state_name(&self) -> String {
-            self.current_state.as_ref().unwrap().print_canonical_name()
-        }
-    }
-}
+mod states;
 
 #[derive(Error, Debug)]
 pub enum KinError {
@@ -667,6 +282,14 @@ impl KinGraph {
         let idx = self.graph.add_node(*p);
         self.id_indx.insert(id, idx);
     }
+    ///Adds a new person to the graph.
+    fn np(&mut self, sex: Sex) -> Person {
+        let p = Person::new(sex);
+        let id = p.id;
+        let idx = self.graph.add_node(p);
+        self.id_indx.insert(id, idx);
+        p
+    }
     ///Adds kind between p1->p2, and kind^-1 (inverse kind) between p2->p1. If such an edge already exists between these nodes,
     /// it exits silently, not adding the edge
     fn add_edges(&mut self, p1: NodeIndex<usize>, p2: NodeIndex<usize>, kind: Kind) {
@@ -700,6 +323,12 @@ impl KinGraph {
             Kind::Repat => self.add_repat(p1, p2)?,
             Kind::Sibling => self.add_sibling(p1, p2)?,
         };
+        Ok(())
+    }
+    ///Make c a child of both p1, and p2.
+    pub fn make_child(&mut self, c: &Person, p1: &Person, p2: &Person) -> Result<()> {
+        self.add_relation(p1, c, Kind::Parent)?;
+        self.add_relation(p2, c, Kind::Parent)?;
         Ok(())
     }
 
@@ -750,6 +379,7 @@ impl KinGraph {
         for p in paths {
             names.push(self.calculate_cr_single_path(self.idx(p1).unwrap(), &p)?);
         }
+        let names = names.into_iter().filter(|s| *s != "Stop").collect();
         Ok(names)
     }
 
@@ -870,6 +500,11 @@ impl KinGraph {
         });
         println!("Result {:?}", res);
         res
+    }
+    fn is_repat(&self, p1: Nd, p2: Nd) -> bool {
+        self.graph
+            .edges_connecting(p1, p2)
+            .any(|e| *e.weight() == Kind::Repat)
     }
     ///Finds all paths between two people, with an internal maximum of the order of the graph
     pub fn find_all_paths(
@@ -1007,6 +642,24 @@ impl KinGraph {
 mod test_kin {
     use super::*;
 
+    fn setup_cousins() -> Result<KinGraph> {
+        let mut kg = KinGraph::new();
+        let p0 = kg.np(Sex::Male);
+        let p1 = kg.np(Sex::Female);
+        let p2 = kg.np(Sex::Male);
+        let p3 = kg.np(Sex::Female);
+        let p4 = kg.np(Sex::Male);
+        let p5 = kg.np(Sex::Female);
+        let p6 = kg.np(Sex::Male);
+        let p7 = kg.np(Sex::Female);
+        kg.make_child(&p2, &p0, &p1)?;
+        kg.make_child(&p3, &p0, &p1)?;
+        kg.make_child(&p6, &p2, &p5)?;
+        kg.make_child(&p7, &p3, &p4)?;
+        Ok(kg)
+
+        //p1, p2 parents of p3,p4
+    }
     fn setup_basic_kg() -> Result<KinGraph> {
         let mut kg = KinGraph::new();
         //make some persons, the sexes aren't important
@@ -1055,6 +708,7 @@ mod test_kin {
         kg.add_relation(&p5, &p3, Kind::Sibling).unwrap();
         //and p6 is parent of p7
         kg.add_relation(&p5, &p6, Kind::Parent).unwrap();
+
         Ok(kg)
     }
     #[test]
@@ -1063,6 +717,18 @@ mod test_kin {
         assert!(!kg.is_rrb(&kg.px(0), &kg.px(2)));
         assert!(kg.is_rrb(&kg.px(0), &kg.px(1)));
         assert!(kg.is_rrb(&kg.px(0), &kg.px(6)));
+    }
+
+    #[test]
+    pub fn cousins() {
+        let mut kg = setup_cousins().unwrap();
+        use std::fs::File;
+        let mut f = File::create("cousins.dot").unwrap();
+        render_to(&mut f, &kg);
+        println!(
+            "Kin says: {:?}",
+            kg.get_canonical_relationships(&kg.px(7), &kg.px(6))
+        );
     }
     #[test]
     fn test_main() -> Result<()> {

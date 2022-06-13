@@ -1,0 +1,32 @@
+digraph Test {
+    N0[label="N0"];
+    N1[label="N1"];
+    N2[label="N2"];
+    N3[label="N3"];
+    N4[label="N4"];
+    N5[label="N5"];
+    N6[label="N6"];
+    N7[label="N7"];
+    N0 -> N2[label="P"];
+    N2 -> N0[label="C"];
+    N0 -> N1[label="R"];
+    N1 -> N0[label="R"];
+    N1 -> N2[label="P"];
+    N2 -> N1[label="C"];
+    N0 -> N3[label="P"];
+    N3 -> N0[label="C"];
+    N1 -> N3[label="P"];
+    N3 -> N1[label="C"];
+    N2 -> N6[label="P"];
+    N6 -> N2[label="C"];
+    N2 -> N5[label="R"];
+    N5 -> N2[label="R"];
+    N5 -> N6[label="P"];
+    N6 -> N5[label="C"];
+    N3 -> N7[label="P"];
+    N7 -> N3[label="C"];
+    N3 -> N4[label="R"];
+    N4 -> N3[label="R"];
+    N4 -> N7[label="P"];
+    N7 -> N4[label="C"];
+}
