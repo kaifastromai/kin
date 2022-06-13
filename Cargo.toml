@@ -9,3 +9,7 @@ edition = "2021"
 petgraph = "*"
 uuid = { version = "1.0.0", features = ["serde", "v4", "v1"] }
 anyhow = { version = "*" }
+thiserror = "*"
+dot = "*"
+indexmap = "*"
+itertools= "*"
