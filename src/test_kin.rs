@@ -18,6 +18,20 @@ fn setup_cousins() -> Result<KinGraph> {
 
     //p1, p2 parents of p3,p4
 }
+fn setup_half_siblings() -> Result<KinGraph> {
+    let mut kg = KinGraph::new();
+    let p0 = kg.np(Sex::Male);
+    let p1 = kg.np(Sex::Female);
+    let p2 = kg.np(Sex::Male);
+    let p3 = kg.np(Sex::Female);
+    let p4 = kg.np(Sex::Male);
+    //p3 is the child of p0 and p1
+    kg.make_child(&p3, &p0, &p1)?;
+    //p4 is the child of p1 and p2
+    kg.make_child(&p4, &p1, &p2)?;
+    //they should be cousins
+    Ok(kg)
+}
 fn setup_basic_kg() -> Result<KinGraph> {
     let mut kg = KinGraph::new();
     //make some persons, the sexes aren't important
@@ -54,7 +68,7 @@ fn setup_basic_kg() -> Result<KinGraph> {
     //give p2 a child
     kg.add_relation(&p1, &p3, Kind::Parent).unwrap();
     //and a spouse
-    kg.add_relation(&p1, &p4, Kind::Repat).unwrap();
+    kg.add_relation(&p1, &p4, Kind::RP).unwrap();
     //p3 is parent of p7
     kg.add_relation(&p3, &p7, Kind::Parent).unwrap();
     //p7 is parent of p8
@@ -87,6 +101,20 @@ pub fn cousins() {
         "Kin says: {:?}",
         kg.get_canonical_relationships(&kg.px(7), &kg.px(6))
     );
+}
+#[test]
+pub fn half_siblings() {
+    let mut kg = setup_half_siblings().unwrap();
+    use std::fs::File;
+    let mut f = File::create("half_siblings.dot").unwrap();
+    render_to(&mut f, &kg);
+    let states = kg
+        .get_canonical_relationships(&kg.px(3), &kg.px(4))
+        .unwrap();
+    println!("{:?}", states);
+    let res = states
+        .iter()
+        .any(|s| s.get_hash() == SiblingState { is_half: true }.get_hash());
 }
 #[test]
 fn test_main() -> Result<()> {
@@ -125,7 +153,7 @@ fn test_main() -> Result<()> {
     //give p2 a child
     kg.add_relation(&p1, &p3, Kind::Parent).unwrap();
     //and a spouse
-    kg.add_relation(&p1, &p4, Kind::Repat).unwrap();
+    kg.add_relation(&p1, &p4, Kind::RP).unwrap();
     //p3 is parent of p7
     kg.add_relation(&p3, &p7, Kind::Parent).unwrap();
     //p7 is parent of p8

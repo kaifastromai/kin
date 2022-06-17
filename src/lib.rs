@@ -4,12 +4,15 @@
 pub const PPRIME: usize = 2_000_003;
 pub const CPRIME: usize = 2_000_029;
 pub const RPRIME: usize = 2_000_039;
+mod states;
+
 mod uuid {
 
     pub fn gen_64() -> u64 {
         uuid::Uuid::new_v4().as_u128() as u64
     }
 }
+
 use itertools::Itertools;
 type Nd = NodeIndex<usize>;
 use anyhow::*;
@@ -18,6 +21,7 @@ use petgraph::algo::*;
 use petgraph::prelude::*;
 use states::*;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::iter::from_fn;
 use std::iter::FromFn;
 use std::{
@@ -56,7 +60,6 @@ pub enum ETransitionStates {
     ///The stop state. Indicates that there is no more relationship.
     STOP,
 }
-mod states;
 
 #[derive(Error, Debug)]
 pub enum KinError {
@@ -85,7 +88,7 @@ pub enum Kind {
     //symmetric
     Sibling = 2,
     //Reproductive partner, symmetric
-    Repat = 3,
+    RP = 3,
 }
 
 impl Kind {
@@ -96,7 +99,7 @@ impl Kind {
             //This should probably be changed later, but for now this is easier...
             Kind::Sibling => 1,
             //Experiment with zero length repat
-            Kind::Repat => 0,
+            Kind::RP => 0,
         }
     }
     fn get_cost(&self) -> u32 {
@@ -104,7 +107,7 @@ impl Kind {
             Kind::Parent => 1,
             Kind::Child => 1,
             Kind::Sibling => 1,
-            Kind::Repat => 1,
+            Kind::RP => 1,
         }
     }
     fn is_blood_kind(&self) -> bool {
@@ -112,7 +115,7 @@ impl Kind {
             Kind::Parent => true,
             Kind::Child => true,
             Kind::Sibling => true,
-            Kind::Repat => false,
+            Kind::RP => false,
         }
     }
     fn get_prime(&self) -> usize {
@@ -120,15 +123,15 @@ impl Kind {
             Kind::Parent => PPRIME,
             Kind::Child => CPRIME,
             Kind::Sibling => 0,
-            Kind::Repat => RPRIME,
+            Kind::RP => RPRIME,
         }
     }
     fn into_base_state(self) -> Box<dyn State> {
         match self {
-            Kind::Parent => Box::new(ParentState {}),
-            Kind::Child => Box::new(ChildState {}),
-            Kind::Sibling => Box::new(SiblingState {}),
-            Kind::Repat => Box::new(RepatState {}),
+            Kind::Parent => Box::new(NParentState { n: 0 }),
+            Kind::Child => Box::new(NChildState { n: 0 }),
+            Kind::Sibling => Box::new(SiblingState { is_half: false }),
+            Kind::RP => Box::new(RPState {}),
         }
     }
 }
@@ -138,7 +141,7 @@ impl std::fmt::Display for Kind {
             Kind::Parent => write!(f, "P"),
             Kind::Child => write!(f, "C"),
             Kind::Sibling => write!(f, "S"),
-            Kind::Repat => write!(f, "R"),
+            Kind::RP => write!(f, "R"),
         }
     }
 }
@@ -307,9 +310,9 @@ impl KinGraph {
                     self.graph.add_edge(p2, p1, Kind::Sibling);
                     self.graph.add_edge(p1, p2, Kind::Sibling)
                 }
-                Kind::Repat => {
-                    self.graph.add_edge(p2, p1, Kind::Repat);
-                    self.graph.add_edge(p1, p2, Kind::Repat)
+                Kind::RP => {
+                    self.graph.add_edge(p2, p1, Kind::RP);
+                    self.graph.add_edge(p1, p2, Kind::RP)
                 }
             };
         }
@@ -319,7 +322,7 @@ impl KinGraph {
         match kind {
             Kind::Parent => self.add_parent(p1, p2)?,
             Kind::Child => self.add_parent(p2, p1)?,
-            Kind::Repat => self.add_repat(p1, p2)?,
+            Kind::RP => self.add_repat(p1, p2)?,
             Kind::Sibling => self.add_sibling(p1, p2)?,
         };
         Ok(())
@@ -351,7 +354,7 @@ impl KinGraph {
                 //We don't have to check if we already are an RP because add edge takes care of that already
                 //make ourselves the RP of the other parent
                 let other_p = parents[0].target();
-                self.add_edges(px, other_p, Kind::Repat);
+                self.add_edges(px, other_p, Kind::RP);
             }
             //make ourselves the parent
             self.add_edges(px, cx, Kind::Parent);
@@ -365,25 +368,37 @@ impl KinGraph {
         Ok(())
     }
     fn add_repat(&mut self, p1: &Person, p2: &Person) -> Result<()> {
-        self.add_edges(self.idx(p1).unwrap(), self.idx(p2).unwrap(), Kind::Repat);
+        self.add_edges(self.idx(p1).unwrap(), self.idx(p2).unwrap(), Kind::RP);
         Ok(())
     }
     ///Calculates relationship between two persons.
-    pub fn get_canonical_relationships(&mut self, p1: &Person, p2: &Person) -> Result<Vec<String>> {
+    pub fn get_canonical_relationships(
+        &mut self,
+        p1: &Person,
+        p2: &Person,
+    ) -> Result<Vec<Box<dyn State>>> {
         if p1 == p2 {
-            return Ok(vec![String::from("self")]);
+            return Ok(vec![Box::new(StopState {})]);
         }
         let paths = self.find_all_paths(p1, p2)?;
-        let mut names = Vec::new();
+        let mut names = HashSet::new();
         for p in paths {
-            names.push(self.calculate_cr_single_path(self.idx(p1).unwrap(), &p)?);
+            names.insert(self.calculate_cr_single_path(self.idx(p1).unwrap(), &p)?);
         }
-        let names = names.into_iter().filter(|s| *s != "Stop").collect();
+        let names = names
+            .into_iter()
+            .filter(|s| !s.get_any().is::<StopState>())
+            .collect();
+
         Ok(names)
     }
 
     ///Calculates canonical relationship given a kind path.
-    fn calculate_cr_single_path(&mut self, p1: Nd, path: &Vec<(Nd, Kind)>) -> Result<String> {
+    fn calculate_cr_single_path(
+        &mut self,
+        p1: Nd,
+        path: &Vec<(Nd, Kind)>,
+    ) -> Result<Box<dyn State>> {
         let mut sm = StateMachine::new();
         let mut cur_idx = p1;
 
@@ -391,10 +406,11 @@ impl KinGraph {
             if sm.transition((cur_idx, *k, *n), self).is_some() {
                 cur_idx = *n;
             } else {
-                return Ok(sm.print_state_name());
+                println!("Current state{:?}", sm.get_current_state());
+                return Ok(sm.get_current_state());
             }
         }
-        Ok(sm.print_state_name())
+        Ok(sm.get_current_state())
     }
 
     ///This builds the depth map. It must be done after all the relations are added.
@@ -484,7 +500,7 @@ impl KinGraph {
                 .tuple_windows()
                 .map(|w: (_, _)| self.graph.edges_connecting(*w.0, *w.1))
                 .fold(0, |acc, mut e| {
-                    let edge1 = e.find(|e| *e.weight() != Kind::Repat);
+                    let edge1 = e.find(|e| *e.weight() != Kind::RP);
                     if edge1.is_none() {
                         return acc + RPRIME;
                     };
@@ -503,7 +519,7 @@ impl KinGraph {
     fn is_repat(&self, p1: Nd, p2: Nd) -> bool {
         self.graph
             .edges_connecting(p1, p2)
-            .any(|e| *e.weight() == Kind::Repat)
+            .any(|e| *e.weight() == Kind::RP)
     }
     ///Finds all paths between two people, with an internal maximum of the order of the graph
     pub fn find_all_paths(
