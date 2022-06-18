@@ -406,7 +406,6 @@ impl KinGraph {
             if sm.transition((cur_idx, *k, *n), self).is_some() {
                 cur_idx = *n;
             } else {
-                println!("Current state{:?}", sm.get_current_state());
                 return Ok(sm.get_current_state());
             }
         }

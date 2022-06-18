@@ -186,7 +186,7 @@ impl State for NChildState {
             let res: Box<dyn State> = match kind.1 {
                 Kind::Parent => {
                     if kg.b_share_parents(kind.0, kind.2) {
-                        Box::new(SiblingState { is_half: true })
+                        Box::new(SiblingState { is_half: false })
                     } else {
                         Box::new(NNeniState {
                             n: self.n,
@@ -210,7 +210,13 @@ impl State for NChildState {
             Some(res)
         } else {
             let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(SiblingState { is_half: false }),
+                Kind::Parent => {
+                    if kg.b_share_parents(kind.0, kind.2) {
+                        Box::new(SiblingState { is_half: false })
+                    } else {
+                        Box::new(SiblingState { is_half: true })
+                    }
+                }
                 Kind::Child => Box::new(NChildState { n: 1 }),
                 Kind::RP => {
                     if kg.is_parent(kind.0, kind.2) {
@@ -255,7 +261,7 @@ impl State for NChildState {
 
 ///Nth child in law
 pub struct NCinLState {
-    n: usize,
+    pub n: usize,
 }
 impl State for NCinLState {
     fn transitions(&self) -> Vec<Transition> {
@@ -313,9 +319,9 @@ impl State for NCinLState {
 
 ///Nth cousin kth times removed
 pub struct NCsnKState {
-    n: usize,
-    k: i32,
-    is_half: bool,
+    pub n: usize,
+    pub k: i32,
+    pub is_half: bool,
 }
 impl State for NCsnKState {
     fn transitions(&self) -> Vec<Transition> {
@@ -399,7 +405,12 @@ impl State for NCsnKState {
             3 => "3rd".to_string(),
             _ => format!("{}th", self.n),
         };
-        format!("{} cousins{}", n_string, rmv_str,)
+        let half = if self.is_half {
+            "half-".to_string()
+        } else {
+            "not half".to_string()
+        };
+        format!("{} {}cousins{}", n_string, half, rmv_str,)
     }
     fn clone_box(&self) -> Box<dyn State> {
         Box::new(NCsnKState {
@@ -417,7 +428,7 @@ impl State for NCsnKState {
         "NCsnKState".hash(&mut hasher);
         self.n.hash(&mut hasher);
         self.k.hash(&mut hasher);
-        self.is_half.hash(&mut hasher);
+        (if self.is_half { "half" } else { "nothalf" }).hash(&mut hasher);
         hasher.finish()
     }
 }
@@ -459,7 +470,7 @@ impl State for SiblingState {
         Some(res)
     }
     fn print_canonical_name(&self) -> String {
-        format!("{}{}", "sibling", if self.is_half { "half-" } else { "" })
+        format!("{}{}", if self.is_half { "half-" } else { "" }, "siblings")
     }
     fn clone_box(&self) -> Box<dyn State> {
         Box::new(SiblingState {
@@ -562,8 +573,8 @@ impl State for SinLState {
 }
 ///Nephew/Niece state
 pub struct NNeniState {
-    n: usize,
-    is_half: bool,
+    pub n: usize,
+    pub is_half: bool,
 }
 impl State for NNeniState {
     fn transitions(&self) -> Vec<Transition> {
@@ -634,8 +645,8 @@ impl State for NNeniState {
 
 ///Nephew/Niece in law state
 pub struct NNNinLState {
-    n: usize,
-    is_half: bool,
+    pub n: usize,
+    pub is_half: bool,
 }
 
 impl State for NNNinLState {
@@ -707,8 +718,8 @@ impl State for NNNinLState {
 
 ///Aunt/uncle state
 pub struct NAUState {
-    n: usize,
-    is_half: bool,
+    pub n: usize,
+    pub is_half: bool,
 }
 impl State for NAUState {
     fn transitions(&self) -> Vec<Transition> {
@@ -809,8 +820,8 @@ impl State for NAUState {
     }
 }
 pub struct NAUinLState {
-    n: usize,
-    is_half: bool,
+    pub n: usize,
+    pub is_half: bool,
 }
 
 impl State for NAUinLState {

@@ -97,10 +97,21 @@ pub fn cousins() {
     use std::fs::File;
     let mut f = File::create("cousins.dot").unwrap();
     render_to(&mut f, &kg);
-    println!(
-        "Kin says: {:?}",
-        kg.get_canonical_relationships(&kg.px(7), &kg.px(6))
-    );
+
+    let states = kg
+        .get_canonical_relationships(&kg.px(7), &kg.px(6))
+        .unwrap();
+    let res = states.iter().any(|s| {
+        s.get_hash()
+            == NCsnKState {
+                n: 1,
+                k: 1,
+                is_half: false,
+            }
+            .get_hash()
+    });
+
+    assert!(res);
 }
 #[test]
 pub fn half_siblings() {
@@ -115,6 +126,7 @@ pub fn half_siblings() {
     let res = states
         .iter()
         .any(|s| s.get_hash() == SiblingState { is_half: true }.get_hash());
+    assert!(res);
 }
 #[test]
 fn test_main() -> Result<()> {
