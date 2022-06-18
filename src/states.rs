@@ -5,7 +5,7 @@ type Transition = (Kind, Box<dyn State>);
 ///Represents a possible state, and describes the possible transitions from that state.
 pub trait State: Any {
     ///Returns an iterator over all possible states that can be reached from this state.
-    fn transitions(&self) -> Vec<Transition>;
+
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>>;
     fn print_canonical_name(&self) -> String;
 
@@ -47,14 +47,6 @@ pub struct NParentState {
     pub n: usize,
 }
 impl State for NParentState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (Kind::Parent, Box::new(NParentState { n: self.n + 1 })),
-            (Kind::Child, Box::new(NPinLState { n: self.n - 1 })),
-            (Kind::RP, Box::new(NPinLState { n: self.n + 1 })),
-            (Kind::Sibling, Box::new(NParentState { n: self.n })),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), _kg: &KinGraph) -> Option<Box<dyn State>> {
         if self.n == 0 {
             let res: Box<dyn State> = match kind.1 {
@@ -105,15 +97,6 @@ pub struct NPinLState {
     pub n: usize,
 }
 impl State for NPinLState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (Kind::Parent, Box::new(NParentState { n: self.n + 1 })),
-            (Kind::Child, Box::new(StopState {})),
-            (Kind::RP, Box::new(NPinLState { n: self.n })),
-            (Kind::RP, Box::new(StopState {})),
-            (Kind::Sibling, Box::new(NParentState { n: self.n })),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), _kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(NParentState { n: self.n + 1 }),
@@ -153,34 +136,6 @@ pub struct NChildState {
     pub n: usize,
 }
 impl State for NChildState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (
-                Kind::Parent,
-                Box::new(NNeniState {
-                    n: self.n - 1,
-                    is_half: false,
-                }),
-            ),
-            (Kind::Parent, Box::new(StopState {})),
-            (Kind::Child, Box::new(NChildState { n: self.n + 1 })),
-            (Kind::RP, Box::new(NChildState { n: self.n + 1 })),
-            (
-                Kind::Sibling,
-                Box::new(NAUState {
-                    n: self.n,
-                    is_half: false,
-                }),
-            ),
-            (
-                Kind::Sibling,
-                Box::new(NNeniState {
-                    n: self.n,
-                    is_half: false,
-                }),
-            ),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         if self.n != 0 {
             let res: Box<dyn State> = match kind.1 {
@@ -264,15 +219,6 @@ pub struct NCinLState {
     pub n: usize,
 }
 impl State for NCinLState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (Kind::Parent, Box::new(StopState {})),
-            (Kind::Child, Box::new(NCinLState { n: self.n + 1 })),
-            (Kind::RP, Box::new(NCinLState { n: self.n })),
-            (Kind::RP, Box::new(StopState {})),
-            (Kind::Sibling, Box::new(NParentState { n: self.n })),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(StopState {}),
@@ -324,42 +270,6 @@ pub struct NCsnKState {
     pub is_half: bool,
 }
 impl State for NCsnKState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (
-                Kind::Parent,
-                Box::new(NCsnKState {
-                    n: self.n,
-                    k: self.k + 1,
-                    is_half: false,
-                }),
-            ),
-            (
-                Kind::Child,
-                Box::new(NCsnKState {
-                    n: self.n + 1,
-                    k: self.k,
-                    is_half: false,
-                }),
-            ),
-            (
-                Kind::RP,
-                Box::new(NCsnKState {
-                    n: self.n,
-                    k: self.k + 1,
-                    is_half: false,
-                }),
-            ),
-            (
-                Kind::Sibling,
-                Box::new(NCsnKState {
-                    n: self.n,
-                    k: self.k,
-                    is_half: false,
-                }),
-            ),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(NCsnKState {
@@ -438,20 +348,6 @@ pub struct SiblingState {
 }
 
 impl State for SiblingState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (
-                Kind::Parent,
-                Box::new(NNeniState {
-                    n: 0,
-                    is_half: false,
-                }),
-            ),
-            (Kind::Child, Box::new(NChildState { n: 0 })),
-            (Kind::RP, Box::new(SinLState { is_half: false })),
-            (Kind::Sibling, Box::new(SiblingState { is_half: false })),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(NNeniState {
@@ -492,14 +388,6 @@ impl State for SiblingState {
 ///Reproductive partner
 pub struct RPState {}
 impl State for RPState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (Kind::Parent, Box::new(StopState {})),
-            (Kind::Child, Box::new(NCinLState { n: 0 })),
-            (Kind::RP, Box::new(StopState {})),
-            (Kind::Sibling, Box::new(SinLState { is_half: false })),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(StopState {}),
@@ -530,14 +418,6 @@ pub struct SinLState {
     is_half: bool,
 }
 impl State for SinLState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (Kind::Parent, Box::new(NParentState { n: 1 })),
-            (Kind::Child, Box::new(RPState {})),
-            (Kind::RP, Box::new(StopState {})),
-            (Kind::Sibling, Box::new(SinLState { is_half: false })),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(NAUinLState {
@@ -577,26 +457,6 @@ pub struct NNeniState {
     pub is_half: bool,
 }
 impl State for NNeniState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (
-                Kind::Parent,
-                Box::new(NNeniState {
-                    n: self.n,
-                    is_half: false,
-                }),
-            ),
-            (Kind::Child, Box::new(NChildState { n: self.n + 1 })),
-            (Kind::RP, Box::new(StopState {})),
-            (
-                Kind::Sibling,
-                Box::new(NNeniState {
-                    n: self.n,
-                    is_half: false,
-                }),
-            ),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(NCsnKState {
@@ -650,26 +510,6 @@ pub struct NNNinLState {
 }
 
 impl State for NNNinLState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (
-                Kind::Parent,
-                Box::new(NNeniState {
-                    n: self.n,
-                    is_half: false,
-                }),
-            ),
-            (Kind::Child, Box::new(NChildState { n: self.n + 1 })),
-            (Kind::RP, Box::new(StopState {})),
-            (
-                Kind::Sibling,
-                Box::new(NNeniState {
-                    n: self.n,
-                    is_half: false,
-                }),
-            ),
-        ]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(NCsnKState {
@@ -722,32 +562,7 @@ pub struct NAUState {
     pub is_half: bool,
 }
 impl State for NAUState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![
-            (
-                Kind::Parent,
-                Box::new(NAUState {
-                    n: self.n,
-                    is_half: false,
-                }),
-            ),
-            (
-                Kind::Child,
-                Box::new(NAUState {
-                    n: self.n,
-                    is_half: false,
-                }),
-            ),
-            (Kind::RP, Box::new(StopState {})),
-            (
-                Kind::Sibling,
-                Box::new(NAUState {
-                    n: self.n,
-                    is_half: false,
-                }),
-            ),
-        ]
-    }
+   
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         if self.n == 0 {
             let res: Box<dyn State> = match kind.1 {
@@ -825,9 +640,6 @@ pub struct NAUinLState {
 }
 
 impl State for NAUinLState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => {
@@ -880,9 +692,6 @@ impl State for NAUinLState {
 }
 pub struct StopState {}
 impl State for StopState {
-    fn transitions(&self) -> Vec<Transition> {
-        vec![]
-    }
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         None
     }
