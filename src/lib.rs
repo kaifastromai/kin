@@ -126,12 +126,15 @@ impl Kind {
             Kind::RP => RPRIME,
         }
     }
-    fn into_base_state(self) -> Box<dyn State> {
+    fn into_base_state(self, sex: Sex) -> Box<dyn State> {
         match self {
-            Kind::Parent => Box::new(NParentState { n: 0 }),
-            Kind::Child => Box::new(NChildState { n: 0 }),
-            Kind::Sibling => Box::new(SiblingState { is_half: false }),
-            Kind::RP => Box::new(RPState {}),
+            Kind::Parent => Box::new(NParentState { n: 0, sex }),
+            Kind::Child => Box::new(NChildState { n: 0, sex }),
+            Kind::Sibling => Box::new(SiblingState {
+                is_half: false,
+                sex,
+            }),
+            Kind::RP => Box::new(RPState { sex }),
         }
     }
 }
@@ -284,6 +287,11 @@ impl KinGraph {
         let idx = self.graph.add_node(*p);
         self.id_indx.insert(id, idx);
     }
+    fn add_persons(&mut self, ps: &[Person]) {
+        for p in ps {
+            self.add_person(p);
+        }
+    }
     ///Adds a new person to the graph.
     fn np(&mut self, sex: Sex) -> Person {
         let p = Person::new(sex);
@@ -318,7 +326,7 @@ impl KinGraph {
         }
     }
     ///Adds a relationship.
-    pub fn add_relation(&mut self, p1: &Person, p2: &Person, kind: Kind) -> Result<()> {
+    pub fn add_relation(&mut self, p1: Person, p2: Person, kind: Kind) -> Result<()> {
         match kind {
             Kind::Parent => self.add_parent(p1, p2)?,
             Kind::Child => self.add_parent(p2, p1)?,
@@ -328,13 +336,13 @@ impl KinGraph {
         Ok(())
     }
     ///Make c a child of both p1, and p2.
-    pub fn make_child(&mut self, c: &Person, p1: &Person, p2: &Person) -> Result<()> {
+    pub fn make_child(&mut self, c: Person, p1: Person, p2: Person) -> Result<()> {
         self.add_relation(p1, c, Kind::Parent)?;
         self.add_relation(p2, c, Kind::Parent)?;
         Ok(())
     }
 
-    fn add_parent(&mut self, p: &Person, c: &Person) -> Result<()> {
+    fn add_parent(&mut self, p: Person, c: Person) -> Result<()> {
         let px = self.idx(p).unwrap();
         let cx = self.idx(c).unwrap();
 
@@ -363,19 +371,19 @@ impl KinGraph {
         Ok(())
     }
 
-    fn add_sibling(&mut self, p1: &Person, p2: &Person) -> Result<()> {
+    fn add_sibling(&mut self, p1: Person, p2: Person) -> Result<()> {
         self.add_edges(self.idx(p1).unwrap(), self.idx(p2).unwrap(), Kind::Sibling);
         Ok(())
     }
-    fn add_repat(&mut self, p1: &Person, p2: &Person) -> Result<()> {
+    fn add_repat(&mut self, p1: Person, p2: Person) -> Result<()> {
         self.add_edges(self.idx(p1).unwrap(), self.idx(p2).unwrap(), Kind::RP);
         Ok(())
     }
     ///Calculates relationship between two persons.
     pub fn get_canonical_relationships(
         &mut self,
-        p1: &Person,
-        p2: &Person,
+        p1: Person,
+        p2: Person,
     ) -> Result<Vec<Box<dyn State>>> {
         if p1 == p2 {
             return Ok(vec![Box::new(StopState {})]);
@@ -415,7 +423,7 @@ impl KinGraph {
     ///This builds the depth map. It must be done after all the relations are added.
     /// Starts at the given root person, instead of some global.
     ///  This allows us to store multiple disconnected family trees.
-    pub fn build_map(&mut self, root: &Person) {
+    pub fn build_map(&mut self, root: Person) {
         let mut depth_map = BTreeMap::<Person, Location>::new();
         //first index
         let mut cidx = self.idx(root).unwrap();
@@ -477,12 +485,12 @@ impl KinGraph {
         }
         //print all the nodes in depth map
         for (k, v) in depth_map.iter() {
-            println!("Node {:} -> {:}", self.idx(k).unwrap().index(), v);
+            println!("Node {:} -> {:}", self.idx(*k).unwrap().index(), v);
         }
         self.depth_map = Some(depth_map);
     }
     ///Finds whether a person is related by blood to another
-    fn is_rrb(&self, p1: &Person, p2: &Person) -> bool {
+    fn is_rrb(&self, p1: Person, p2: Person) -> bool {
         //they are related only blood iff there is a path that only
         let sps = all_simple_paths(
             &self.graph,
@@ -523,8 +531,8 @@ impl KinGraph {
     ///Finds all paths between two people, with an internal maximum of the order of the graph
     pub fn find_all_paths(
         &self,
-        p1: &Person,
-        p2: &Person,
+        p1: Person,
+        p2: Person,
     ) -> Result<Vec<Vec<(NodeIndex<usize>, Kind)>>> {
         let p1x = self.idx(p1).unwrap();
         let goalx = self.idx(p2).unwrap();
@@ -648,7 +656,7 @@ impl KinGraph {
     }
 
     ///Get NodeIndex from person
-    fn idx(&self, p: &Person) -> Option<NodeIndex<usize>> {
+    fn idx(&self, p: Person) -> Option<NodeIndex<usize>> {
         self.id_indx.get(&p.id).cloned()
     }
 }

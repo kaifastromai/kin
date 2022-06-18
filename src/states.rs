@@ -45,23 +45,45 @@ impl std::cmp::Eq for dyn State {}
 #[derive(Hash, Eq, PartialEq, Debug)]
 pub struct NParentState {
     pub n: usize,
+    pub sex: super::Sex,
 }
 impl State for NParentState {
     fn transition(&self, kind: (Nd, Kind, Nd), _kg: &KinGraph) -> Option<Box<dyn State>> {
         if self.n == 0 {
             let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(NParentState { n: 1 }),
-                Kind::Child => Box::new(RPState {}),
-                Kind::RP => Box::new(NPinLState { n: 0 }),
-                Kind::Sibling => Box::new(NParentState { n: 0 }),
+                Kind::Parent => Box::new(NParentState {
+                    n: 1,
+                    sex: self.sex,
+                }),
+                Kind::Child => Box::new(RPState { sex: self.sex }),
+                Kind::RP => Box::new(NPinLState {
+                    n: 0,
+                    sex: self.sex,
+                }),
+                Kind::Sibling => Box::new(NParentState {
+                    n: 0,
+                    sex: self.sex,
+                }),
             };
             Some(res)
         } else {
             let res: Box<dyn State> = match kind.1 {
-                Kind::Parent => Box::new(NParentState { n: self.n + 1 }),
-                Kind::Child => Box::new(NPinLState { n: self.n - 1 }),
-                Kind::RP => Box::new(NPinLState { n: self.n + 1 }),
-                Kind::Sibling => Box::new(NParentState { n: self.n }),
+                Kind::Parent => Box::new(NParentState {
+                    n: self.n + 1,
+                    sex: self.sex,
+                }),
+                Kind::Child => Box::new(NPinLState {
+                    n: self.n - 1,
+                    sex: self.sex,
+                }),
+                Kind::RP => Box::new(NPinLState {
+                    n: self.n + 1,
+                    sex: self.sex,
+                }),
+                Kind::Sibling => Box::new(NParentState {
+                    n: self.n,
+                    sex: self.sex,
+                }),
             };
 
             Some(res)
@@ -75,10 +97,21 @@ impl State for NParentState {
                 greats_string + "grand"
             }
         };
-        format!("{}-{}", g, "parent")
+        format!(
+            "{}-{}",
+            g,
+            if self.sex == Sex::Male {
+                "father"
+            } else {
+                "mother"
+            },
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
-        Box::new(NParentState { n: self.n })
+        Box::new(NParentState {
+            n: self.n,
+            sex: self.sex,
+        })
     }
     fn get_any(&self) -> &dyn std::any::Any {
         self
@@ -95,14 +128,24 @@ impl State for NParentState {
 ///Nth parent in law state
 pub struct NPinLState {
     pub n: usize,
+    pub sex: super::Sex,
 }
 impl State for NPinLState {
     fn transition(&self, kind: (Nd, Kind, Nd), _kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
-            Kind::Parent => Box::new(NParentState { n: self.n + 1 }),
+            Kind::Parent => Box::new(NParentState {
+                n: self.n + 1,
+                sex: self.sex,
+            }),
             Kind::Child => Box::new(StopState {}),
-            Kind::RP => Box::new(NPinLState { n: self.n }),
-            Kind::Sibling => Box::new(NParentState { n: self.n }),
+            Kind::RP => Box::new(NPinLState {
+                n: self.n,
+                sex: self.sex,
+            }),
+            Kind::Sibling => Box::new(NParentState {
+                n: self.n,
+                sex: self.sex,
+            }),
         };
         Some(res)
     }
@@ -115,10 +158,21 @@ impl State for NPinLState {
                 greats_string + "grand"
             }
         };
-        format!("{}-{}", g, "parent-in-law")
+        format!(
+            "{}-{} in law",
+            g,
+            if self.sex == Sex::Male {
+                "father"
+            } else {
+                "mother"
+            },
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
-        Box::new(NPinLState { n: self.n })
+        Box::new(NPinLState {
+            n: self.n,
+            sex: self.sex,
+        })
     }
     fn get_any(&self) -> &dyn std::any::Any {
         self
@@ -134,6 +188,7 @@ impl State for NPinLState {
 
 pub struct NChildState {
     pub n: usize,
+    pub sex: super::Sex,
 }
 impl State for NChildState {
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
@@ -141,22 +196,33 @@ impl State for NChildState {
             let res: Box<dyn State> = match kind.1 {
                 Kind::Parent => {
                     if kg.b_share_parents(kind.0, kind.2) {
-                        Box::new(SiblingState { is_half: false })
+                        Box::new(SiblingState {
+                            is_half: false,
+                            sex: self.sex,
+                        })
                     } else {
                         Box::new(NNeniState {
                             n: self.n,
                             is_half: false,
+                            sex: self.sex,
                         })
                     }
                 }
-                Kind::Child => Box::new(NChildState { n: self.n + 1 }),
+                Kind::Child => Box::new(NChildState {
+                    n: self.n + 1,
+                    sex: self.sex,
+                }),
                 Kind::Sibling => Box::new(NAUState {
                     n: self.n,
                     is_half: false,
+                    sex: kg.px(kind.0.index()).sex,
                 }),
                 Kind::RP => {
                     if kg.is_parent(kind.0, kind.2) {
-                        Box::new(NChildState { n: self.n + 1 })
+                        Box::new(NChildState {
+                            n: self.n + 1,
+                            sex: self.sex,
+                        })
                     } else {
                         Box::new(StopState {})
                     }
@@ -167,15 +233,27 @@ impl State for NChildState {
             let res: Box<dyn State> = match kind.1 {
                 Kind::Parent => {
                     if kg.b_share_parents(kind.0, kind.2) {
-                        Box::new(SiblingState { is_half: false })
+                        Box::new(SiblingState {
+                            is_half: false,
+                            sex: self.sex,
+                        })
                     } else {
-                        Box::new(SiblingState { is_half: true })
+                        Box::new(SiblingState {
+                            is_half: true,
+                            sex: self.sex,
+                        })
                     }
                 }
-                Kind::Child => Box::new(NChildState { n: 1 }),
+                Kind::Child => Box::new(NChildState {
+                    n: 1,
+                    sex: self.sex,
+                }),
                 Kind::RP => {
                     if kg.is_parent(kind.0, kind.2) {
-                        Box::new(NChildState { n: 1 })
+                        Box::new(NChildState {
+                            n: 1,
+                            sex: self.sex,
+                        })
                     } else {
                         Box::new(StopState {})
                     }
@@ -183,6 +261,7 @@ impl State for NChildState {
                 Kind::Sibling => Box::new(NNeniState {
                     n: 0,
                     is_half: false,
+                    sex: self.sex,
                 }),
             };
             Some(res)
@@ -197,10 +276,21 @@ impl State for NChildState {
                 greats_string + "great"
             }
         };
-        format!("{}-{}", g, "child")
+        format!(
+            "{}-{}",
+            g,
+            if self.sex == Sex::Male {
+                "son"
+            } else {
+                "daughter"
+            },
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
-        Box::new(NChildState { n: self.n })
+        Box::new(NChildState {
+            n: self.n,
+            sex: self.sex,
+        })
     }
     fn get_any(&self) -> &dyn std::any::Any {
         self
@@ -217,15 +307,22 @@ impl State for NChildState {
 ///Nth child in law
 pub struct NCinLState {
     pub n: usize,
+    pub sex: super::Sex,
 }
 impl State for NCinLState {
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(StopState {}),
-            Kind::Child => Box::new(NCinLState { n: self.n + 1 }),
+            Kind::Child => Box::new(NCinLState {
+                n: self.n + 1,
+                sex: self.sex,
+            }),
             Kind::RP => {
                 if kg.is_repat(kind.0, kind.2) {
-                    Box::new(NCinLState { n: self.n })
+                    Box::new(NCinLState {
+                        n: self.n,
+                        sex: self.sex,
+                    })
                 } else {
                     Box::new(StopState {})
                 }
@@ -233,6 +330,7 @@ impl State for NCinLState {
             Kind::Sibling => Box::new(NNNinLState {
                 n: self.n,
                 is_half: false,
+                sex: self.sex,
             }),
         };
         Some(res)
@@ -246,10 +344,21 @@ impl State for NCinLState {
                 greats_string + "great-"
             }
         };
-        format!("{}{}", g, "child-in-law")
+        format!(
+            "{}{} in law",
+            g,
+            if self.sex == Sex::Male {
+                "son"
+            } else {
+                "daughter"
+            },
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
-        Box::new(NCinLState { n: self.n })
+        Box::new(NCinLState {
+            n: self.n,
+            sex: self.sex,
+        })
     }
     fn get_any(&self) -> &dyn std::any::Any {
         self
@@ -268,6 +377,7 @@ pub struct NCsnKState {
     pub n: usize,
     pub k: i32,
     pub is_half: bool,
+    pub sex: super::Sex,
 }
 impl State for NCsnKState {
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
@@ -276,18 +386,21 @@ impl State for NCsnKState {
                 n: self.n,
                 k: self.k + 1,
                 is_half: false,
+                sex: self.sex,
             }),
             Kind::Child => {
                 if self.n == self.k as usize {
                     Box::new(NNeniState {
                         n: self.n,
                         is_half: self.is_half,
+                        sex: self.sex,
                     })
                 } else {
                     Box::new(NCsnKState {
                         n: self.n,
                         k: self.k - 1,
                         is_half: false,
+                        sex: self.sex,
                     })
                 }
             }
@@ -296,6 +409,7 @@ impl State for NCsnKState {
                 n: self.n,
                 k: self.k,
                 is_half: self.is_half,
+                sex: self.sex,
             }),
         };
 
@@ -327,6 +441,7 @@ impl State for NCsnKState {
             n: self.n,
             k: self.k,
             is_half: self.is_half,
+            sex: self.sex,
         })
     }
     fn get_any(&self) -> &dyn std::any::Any {
@@ -345,32 +460,48 @@ impl State for NCsnKState {
 
 pub struct SiblingState {
     pub is_half: bool,
+    pub sex: super::Sex,
 }
 
 impl State for SiblingState {
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
-            Kind::Parent => Box::new(NNeniState {
+            Kind::Parent => Box::new(NAUState {
                 n: 0,
                 is_half: self.is_half,
+                sex: kg.px(kind.0.index()).sex,
             }),
-            Kind::Child => Box::new(NChildState { n: 0 }),
+            Kind::Child => Box::new(NChildState {
+                n: 0,
+                sex: self.sex,
+            }),
             Kind::RP => Box::new(SinLState {
                 is_half: self.is_half,
+                sex: self.sex,
             }),
             Kind::Sibling => Box::new(SiblingState {
                 is_half: self.is_half,
+                sex: self.sex,
             }),
         };
         if self.is_half {}
         Some(res)
     }
     fn print_canonical_name(&self) -> String {
-        format!("{}{}", if self.is_half { "half-" } else { "" }, "siblings")
+        format!(
+            "{}{}",
+            if self.is_half { "half-" } else { "" },
+            if self.sex == Sex::Male {
+                "brother"
+            } else {
+                "sister"
+            },
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
         Box::new(SiblingState {
             is_half: self.is_half,
+            sex: self.sex,
         })
     }
     fn get_any(&self) -> &dyn std::any::Any {
@@ -386,22 +517,34 @@ impl State for SiblingState {
 }
 
 ///Reproductive partner
-pub struct RPState {}
+pub struct RPState {
+    pub sex: super::Sex,
+}
 impl State for RPState {
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(StopState {}),
-            Kind::Child => Box::new(NCinLState { n: 0 }),
+            Kind::Child => Box::new(NCinLState {
+                n: 0,
+                sex: self.sex,
+            }),
             Kind::RP => Box::new(StopState {}),
-            Kind::Sibling => Box::new(SinLState { is_half: false }),
+            Kind::Sibling => Box::new(SinLState {
+                is_half: false,
+                sex: self.sex,
+            }),
         };
         Some(res)
     }
     fn print_canonical_name(&self) -> String {
-        "Reproductive Partner/Spouse".to_string()
+        match self.sex {
+            Sex::Female => "wife",
+            Sex::Male => "husband",
+        }
+        .to_string()
     }
     fn clone_box(&self) -> Box<dyn State> {
-        Box::new(RPState {})
+        Box::new(RPState { sex: self.sex })
     }
     fn get_any(&self) -> &dyn std::any::Any {
         self
@@ -415,7 +558,8 @@ impl State for RPState {
 }
 
 pub struct SinLState {
-    is_half: bool,
+    pub is_half: bool,
+    pub sex: super::Sex,
 }
 impl State for SinLState {
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
@@ -423,21 +567,32 @@ impl State for SinLState {
             Kind::Parent => Box::new(NAUinLState {
                 n: 0,
                 is_half: self.is_half,
+                sex: kg.px(kind.0.index()).sex,
             }),
-            Kind::Child => Box::new(RPState {}),
+            Kind::Child => Box::new(RPState { sex: self.sex }),
             Kind::RP => Box::new(StopState {}),
             Kind::Sibling => Box::new(SinLState {
                 is_half: self.is_half,
+                sex: self.sex,
             }),
         };
         Some(res)
     }
     fn print_canonical_name(&self) -> String {
-        format!("{}{}", "sibling", if self.is_half { "half-" } else { "" })
+        format!(
+            "{}{} in law",
+            if self.sex == Sex::Male {
+                "brother"
+            } else {
+                "sister"
+            },
+            if self.is_half { "half-" } else { "" }
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
         Box::new(SinLState {
             is_half: self.is_half,
+            sex: self.sex,
         })
     }
     fn get_any(&self) -> &dyn std::any::Any {
@@ -455,6 +610,7 @@ impl State for SinLState {
 pub struct NNeniState {
     pub n: usize,
     pub is_half: bool,
+    pub sex: super::Sex,
 }
 impl State for NNeniState {
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
@@ -463,12 +619,14 @@ impl State for NNeniState {
                 n: self.n,
                 k: self.n as i32,
                 is_half: self.is_half,
+                sex: self.sex,
             }),
             Kind::Child => Box::new(StopState {}),
             Kind::RP => Box::new(StopState {}),
             Kind::Sibling => Box::new(NNeniState {
                 n: self.n,
                 is_half: self.is_half,
+                sex: self.sex,
             }),
         };
         Some(res)
@@ -476,18 +634,27 @@ impl State for NNeniState {
     fn print_canonical_name(&self) -> String {
         let g = match self.n {
             0 => "".to_string(),
-            1 => "great".to_string(),
+            1 => "grand".to_string(),
             _ => {
                 let greats_string = "great-".repeat(self.n - 1);
-                greats_string + "great"
+                greats_string + "great-"
             }
         };
-        format!("{}-{}", g, "nephew/niece")
+        format!(
+            "{}{}",
+            g,
+            if self.sex == Sex::Male {
+                "nephew"
+            } else {
+                "niece"
+            }
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
         Box::new(NNeniState {
             n: self.n,
             is_half: self.is_half,
+            sex: self.sex,
         })
     }
     fn get_any(&self) -> &dyn std::any::Any {
@@ -507,6 +674,7 @@ impl State for NNeniState {
 pub struct NNNinLState {
     pub n: usize,
     pub is_half: bool,
+    pub sex: super::Sex,
 }
 
 impl State for NNNinLState {
@@ -516,12 +684,14 @@ impl State for NNNinLState {
                 n: self.n,
                 k: self.n as i32,
                 is_half: self.is_half,
+                sex: self.sex,
             }),
             Kind::Child => Box::new(StopState {}),
             Kind::RP => Box::new(StopState {}),
             Kind::Sibling => Box::new(NNeniState {
                 n: self.n,
                 is_half: self.is_half,
+                sex: self.sex,
             }),
         };
         Some(res)
@@ -535,12 +705,21 @@ impl State for NNNinLState {
                 greats_string + "great"
             }
         };
-        format!("{}-{}", g, "nephew/niece")
+        format!(
+            "{}-{} in law",
+            g,
+            if self.sex == Sex::Male {
+                "nephew"
+            } else {
+                "niece"
+            }
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
         Box::new(NNNinLState {
             n: self.n,
             is_half: self.is_half,
+            sex: self.sex,
         })
     }
     fn get_any(&self) -> &dyn std::any::Any {
@@ -560,26 +739,30 @@ impl State for NNNinLState {
 pub struct NAUState {
     pub n: usize,
     pub is_half: bool,
+    pub sex: super::Sex,
 }
 impl State for NAUState {
-   
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         if self.n == 0 {
             let res: Box<dyn State> = match kind.1 {
                 Kind::Parent => Box::new(NAUState {
                     n: self.n,
                     is_half: false,
+                    sex: self.sex,
                 }),
                 Kind::Child => Box::new(SinLState {
                     is_half: self.is_half,
+                    sex: self.sex,
                 }),
                 Kind::RP => Box::new(NAUinLState {
                     n: self.n,
                     is_half: self.is_half,
+                    sex: self.sex,
                 }),
                 Kind::Sibling => Box::new(NAUState {
                     n: self.n,
                     is_half: self.is_half,
+                    sex: self.sex,
                 }),
             };
             Some(res)
@@ -588,18 +771,22 @@ impl State for NAUState {
                 Kind::Parent => Box::new(NAUState {
                     n: self.n + 1,
                     is_half: false,
+                    sex: kg.px(kind.0.index()).sex,
                 }),
                 Kind::Child => Box::new(NAUinLState {
                     n: self.n - 1,
                     is_half: self.is_half,
+                    sex: kg.px(kind.0.index()).sex,
                 }),
                 Kind::RP => Box::new(NAUinLState {
                     n: self.n,
                     is_half: self.is_half,
+                    sex: self.sex,
                 }),
                 Kind::Sibling => Box::new(NAUState {
                     n: self.n,
                     is_half: self.is_half,
+                    sex: self.sex,
                 }),
             };
             Some(res)
@@ -608,18 +795,27 @@ impl State for NAUState {
     fn print_canonical_name(&self) -> String {
         let g = match self.n {
             0 => "".to_string(),
-            1 => "great".to_string(),
+            1 => "grand".to_string(),
             _ => {
                 let greats_string = "great-".repeat(self.n - 1);
-                greats_string + "great"
+                greats_string + "great-"
             }
         };
-        format!("{}-{}", g, "aunt/uncle")
+        format!(
+            "{}{}",
+            g,
+            if self.sex == Sex::Male {
+                "uncle"
+            } else {
+                "aunt"
+            }
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
         Box::new(NAUState {
             n: self.n,
             is_half: self.is_half,
+            sex: self.sex,
         })
     }
     fn get_any(&self) -> &dyn std::any::Any {
@@ -637,18 +833,20 @@ impl State for NAUState {
 pub struct NAUinLState {
     pub n: usize,
     pub is_half: bool,
+    pub sex: super::Sex,
 }
 
 impl State for NAUinLState {
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => {
-                if !kg.is_rrb(&kg.px(kind.0.index()), &kg.px(kind.0.index())) {
+                if !kg.is_rrb(kg.px(kind.0.index()), kg.px(kind.0.index())) {
                     Box::new(StopState {})
                 } else {
                     Box::new(NAUState {
                         n: self.n + 1,
                         is_half: self.is_half,
+                        sex: self.sex,
                     })
                 }
             }
@@ -657,6 +855,7 @@ impl State for NAUinLState {
             Kind::Sibling => Box::new(NAUinLState {
                 n: self.n,
                 is_half: self.is_half,
+                sex: kg.px(kind.0.index()).sex,
             }),
         };
         Some(res)
@@ -670,12 +869,21 @@ impl State for NAUinLState {
                 greats_string + "great"
             }
         };
-        format!("{}-{}", g, "aunt/uncle in Law")
+        format!(
+            "{}-{} in law",
+            g,
+            if self.sex == Sex::Male {
+                "uncle"
+            } else {
+                "aunt"
+            }
+        )
     }
     fn clone_box(&self) -> Box<dyn State> {
         Box::new(NAUinLState {
             n: self.n,
             is_half: self.is_half,
+            sex: self.sex,
         })
     }
     fn get_any(&self) -> &dyn std::any::Any {
@@ -723,7 +931,7 @@ impl StateMachine {
     ///Change the state according to the kind input
     pub fn transition(&mut self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<()> {
         if self.current_state.is_none() {
-            self.current_state = Some(kind.1.into_base_state());
+            self.current_state = Some(kind.1.into_base_state(kg.px(kind.0.index()).sex));
             Some(())
         } else {
             let mut new_state = self.current_state.as_mut().unwrap().transition(kind, kg);
