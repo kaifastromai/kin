@@ -32,6 +32,22 @@ fn setup_half_siblings() -> Result<KinGraph> {
     //they should be cousins
     Ok(kg)
 }
+//niece/nephew aunt/uncle setup
+fn setup_nn_au() -> Result<KinGraph> {
+    let mut kg = KinGraph::new();
+    let p0 = Person::new(Sex::Female);
+    let p1 = Person::new(Sex::Female);
+    let p2 = Person::new(Sex::Male);
+    let p3 = Person::new(Sex::Male);
+    let p4 = Person::new(Sex::Female);
+    let p5 = Person::new(Sex::Female);
+    let p6 = Person::new(Sex::Male);
+    let p7 = Person::new(Sex::Male);
+    let p8 = Person::new(Sex::Female);
+    let p9 = Person::new(Sex::Female);
+    
+    Ok(kg)
+}
 fn setup_basic_kg() -> Result<KinGraph> {
     let mut kg = KinGraph::new();
     //make some persons, the sexes aren't important
