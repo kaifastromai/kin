@@ -151,6 +151,14 @@ pub fn half_siblings() {
     assert!(res);
 }
 #[test]
+pub fn incest(){
+   let mut kg=KinGraph::new();
+    use std::fs::File;
+    let mut f = File::create("incest.dot").unwrap();
+    render_to(&mut f, &kg);
+
+}
+#[test]
 pub fn nn_au() {
     let mut kg = setup_nn_au().unwrap();
     use std::fs::File;

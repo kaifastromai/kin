@@ -4,11 +4,8 @@ use super::*;
 type Transition = (Kind, Box<dyn State>);
 ///Represents a possible state, and describes the possible transitions from that state.
 pub trait State: Any {
-    ///Returns an iterator over all possible states that can be reached from this state.
-
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>>;
     fn print_canonical_name(&self) -> String;
-
     fn clone_box(&self) -> Box<dyn State>;
     fn get_any(&self) -> &dyn std::any::Any;
     //get a unique hash for this state.
@@ -90,22 +87,30 @@ impl State for NParentState {
         }
     }
     fn print_canonical_name(&self) -> String {
-        let g = match self.n {
-            1 => "grand".to_string(),
-            _ => {
-                let greats_string = "great-".repeat(self.n - 1);
-                greats_string + "grand"
-            }
-        };
-        format!(
-            "{}-{}",
-            g,
-            if self.sex == Sex::Male {
-                "father"
-            } else {
-                "mother"
-            },
-        )
+        if self.n == 0 {
+            let s = match self.sex {
+                Sex::Female => "mother",
+                Sex::Male => "father",
+            };
+            s.to_string()
+        } else {
+            let g = match self.n {
+                1 => "grand".to_string(),
+                _ => {
+                    let greats_string = "great-".repeat(self.n - 1);
+                    greats_string + "grand"
+                }
+            };
+            format!(
+                "{}-{}",
+                g,
+                if self.sex == Sex::Male {
+                    "father"
+                } else {
+                    "mother"
+                },
+            )
+        }
     }
     fn clone_box(&self) -> Box<dyn State> {
         Box::new(NParentState {

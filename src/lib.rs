@@ -5,6 +5,7 @@ pub const PPRIME: usize = 2_000_003;
 pub const CPRIME: usize = 2_000_029;
 pub const RPRIME: usize = 2_000_039;
 mod states;
+mod kin_dsl;
 
 mod uuid {
 
@@ -491,7 +492,7 @@ impl KinGraph {
     }
     ///Finds whether a person is related by blood to another
     fn is_rrb(&self, p1: Person, p2: Person) -> bool {
-        //they are related only blood iff there is a path that only
+        //they are related by blood iff there is a path that of only child/parent edges between them
         let sps = all_simple_paths(
             &self.graph,
             self.idx(p1).unwrap(),
@@ -500,7 +501,6 @@ impl KinGraph {
             None,
         )
         .collect::<Vec<Vec<_>>>();
-
         let res = sps.iter().any(|p| {
             let sum = p
                 .iter()
@@ -511,9 +511,7 @@ impl KinGraph {
                     if edge1.is_none() {
                         return acc + RPRIME;
                     };
-
                     let edge1 = edge1.unwrap();
-
                     return acc + edge1.weight().get_prime();
                 });
 
