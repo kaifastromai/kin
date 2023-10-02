@@ -275,14 +275,14 @@ impl State for NChildState {
     fn print_canonical_name(&self) -> String {
         let g = match self.n {
             0 => "".to_string(),
-            1 => "great".to_string(),
+            1 => "grand-".to_string(),
             _ => {
                 let greats_string = "great-".repeat(self.n - 1);
-                greats_string + "great"
+                greats_string + "grand-"
             }
         };
         format!(
-            "{}-{}",
+            "{}{}",
             g,
             if self.sex == Sex::Male {
                 "son"
@@ -489,7 +489,6 @@ impl State for SiblingState {
                 sex: self.sex,
             }),
         };
-        if self.is_half {}
         Some(res)
     }
     fn print_canonical_name(&self) -> String {
@@ -543,8 +542,8 @@ impl State for RPState {
     }
     fn print_canonical_name(&self) -> String {
         match self.sex {
-            Sex::Female => "wife",
-            Sex::Male => "husband",
+            Sex::Female => "female reproductive partner",
+            Sex::Male => "male reproductive partner",
         }
         .to_string()
     }
@@ -939,7 +938,7 @@ impl StateMachine {
             self.current_state = Some(kind.1.into_base_state(kg.px(kind.0.index()).sex));
             Some(())
         } else {
-            let mut new_state = self.current_state.as_mut().unwrap().transition(kind, kg);
+            let new_state = self.current_state.as_mut().unwrap().transition(kind, kg);
             if new_state.is_none() {
                 None
             } else {

@@ -1,11 +1,11 @@
 //! Represents familial relationships between persons (that reproduce offspring via dimorphic sexual relations).
-
 //Two coprime numbers
 pub const PPRIME: usize = 2_000_003;
 pub const CPRIME: usize = 2_000_029;
 pub const RPRIME: usize = 2_000_039;
-mod states;
 mod kin_dsl;
+mod kin_wasm;
+mod states;
 
 mod uuid {
 
@@ -31,6 +31,7 @@ use std::{
     ops::{Add, Sub},
 };
 use thiserror::Error;
+use wasm_bindgen::prelude::wasm_bindgen;
 fn render_to<W: std::io::Write>(output: &mut W, graph: &KinGraph) {
     dot::render(graph, output).unwrap();
 }
@@ -82,6 +83,7 @@ pub enum KinError {
 /// can be represented as a combination of these).
 ///
 #[derive(Clone, Copy, PartialEq, Eq)]
+
 pub enum Kind {
     Parent = 1,
     //The inverse of a parent
@@ -193,20 +195,27 @@ impl Sub for Location {
     }
 }
 
-#[derive(Eq, Hash, PartialEq, Clone, Copy, PartialOrd, Ord, Debug)]
+#[derive(
+    Eq, Hash, serde::Serialize, serde::Deserialize, PartialEq, Clone, Copy, PartialOrd, Ord, Debug,
+)]
+#[wasm_bindgen]
 pub enum Sex {
     Male,
     Female,
 }
 
-#[derive(Hash, PartialEq, Eq, Clone, Copy, PartialOrd, Ord, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, PartialOrd, Ord, Debug)]
+#[wasm_bindgen]
 pub struct Person {
     id: usize,
+    name: String,
     sex: Sex,
     //If this is a shadow person added by the sanitizer
     is_shadow: bool,
 }
+#[wasm_bindgen]
 impl Person {
+    #[wasm_bindgen(constructor)]
     pub fn new(sex: Sex) -> Self {
         //assign random (hopefully) unique id.
         let id = uuid::gen_64();
@@ -215,7 +224,25 @@ impl Person {
             id: id as usize,
             sex,
             is_shadow: false,
+            name: String::from("unkn"),
         }
+    }
+    pub fn new_with_id(sex: Sex, id: usize, name: String) -> Self {
+        Person {
+            id,
+            sex,
+            is_shadow: false,
+            name,
+        }
+    }
+    pub fn get_id(&self) -> usize {
+        self.id
+    }
+    pub fn get_sex(&self) -> Sex {
+        self.sex
+    }
+    pub fn is_shadow(&self) -> bool {
+        self.is_shadow
     }
 }
 impl From<Person> for NodeIndex<usize> {
@@ -280,17 +307,17 @@ impl KinGraph {
         }
     }
     ///Get's the person with the given index, based upon the order in which it was added to the graph.
-    pub fn px(&self, ix: usize) -> Person {
-        self.graph[NodeIndex::from(ix)]
+    pub fn px(&self, ix: usize) -> &Person {
+        &self.graph[NodeIndex::from(ix)]
     }
     fn add_person(&mut self, p: &Person) {
         let id = p.id;
         let idx = self.graph.add_node(*p);
         self.id_indx.insert(id, idx);
     }
-    fn add_persons(&mut self, ps: &[Person]) {
+    fn add_persons(&mut self, ps: &[&Person]) {
         for p in ps {
-            self.add_person(p);
+            self.add_person(*p);
         }
     }
     ///Adds a new person to the graph.
@@ -326,8 +353,9 @@ impl KinGraph {
             };
         }
     }
+
     ///Adds a relationship.
-    pub fn add_relation(&mut self, p1: Person, p2: Person, kind: Kind) -> Result<()> {
+    pub fn add_relation(&mut self, p1: &Person, p2: &Person, kind: Kind) -> Result<()> {
         match kind {
             Kind::Parent => self.add_parent(p1, p2)?,
             Kind::Child => self.add_parent(p2, p1)?,
@@ -336,14 +364,38 @@ impl KinGraph {
         };
         Ok(())
     }
+    pub fn as_wasm_graph(&self) -> kin_wasm::KinWasmGraph {
+        let mut persons = Vec::new();
+        for p in self.graph.node_indices() {
+            let mut relations = Vec::new();
+            for e in self.graph.edges_directed(p, Direction::Outgoing) {
+                relations.push(kin_wasm::Relation {
+                    id: e.target().index() as u32,
+                    kind: match e.weight() {
+                        Kind::Parent => kin_wasm::RelationKind::Parent,
+                        Kind::Child => kin_wasm::RelationKind::Child,
+                        Kind::RP => kin_wasm::RelationKind::RP,
+                        Kind::Sibling => kin_wasm::RelationKind::Sibling,
+                    },
+                });
+            }
+            let person_at = self.graph[p];
+            persons.push(kin_wasm::PersonNode::new(
+                p.index() as u32,
+                person_at.sex,
+                relations,
+            ));
+        }
+        kin_wasm::KinWasmGraph::new(persons)
+    }
     ///Make c a child of both p1, and p2.
-    pub fn make_child(&mut self, c: Person, p1: Person, p2: Person) -> Result<()> {
+    pub fn make_child(&mut self, c: &Person, p1: &Person, p2: &Person) -> Result<()> {
         self.add_relation(p1, c, Kind::Parent)?;
         self.add_relation(p2, c, Kind::Parent)?;
         Ok(())
     }
 
-    fn add_parent(&mut self, p: Person, c: Person) -> Result<()> {
+    fn add_parent(&mut self, p: &Person, c: &Person) -> Result<()> {
         let px = self.idx(p).unwrap();
         let cx = self.idx(c).unwrap();
 
@@ -372,19 +424,19 @@ impl KinGraph {
         Ok(())
     }
 
-    fn add_sibling(&mut self, p1: Person, p2: Person) -> Result<()> {
+    fn add_sibling(&mut self, p1: &Person, p2: &Person) -> Result<()> {
         self.add_edges(self.idx(p1).unwrap(), self.idx(p2).unwrap(), Kind::Sibling);
         Ok(())
     }
-    fn add_repat(&mut self, p1: Person, p2: Person) -> Result<()> {
+    fn add_repat(&mut self, p1: &Person, p2: &Person) -> Result<()> {
         self.add_edges(self.idx(p1).unwrap(), self.idx(p2).unwrap(), Kind::RP);
         Ok(())
     }
     ///Calculates relationship between two persons.
     pub fn get_canonical_relationships(
-        &mut self,
-        p1: Person,
-        p2: Person,
+        &self,
+        p1: &Person,
+        p2: &Person,
     ) -> Result<Vec<Box<dyn State>>> {
         if p1 == p2 {
             return Ok(vec![Box::new(StopState {})]);
@@ -403,11 +455,7 @@ impl KinGraph {
     }
 
     ///Calculates canonical relationship given a kind path.
-    fn calculate_cr_single_path(
-        &mut self,
-        p1: Nd,
-        path: &Vec<(Nd, Kind)>,
-    ) -> Result<Box<dyn State>> {
+    fn calculate_cr_single_path(&self, p1: Nd, path: &Vec<(Nd, Kind)>) -> Result<Box<dyn State>> {
         let mut sm = StateMachine::new();
         let mut cur_idx = p1;
 
@@ -424,7 +472,7 @@ impl KinGraph {
     ///This builds the depth map. It must be done after all the relations are added.
     /// Starts at the given root person, instead of some global.
     ///  This allows us to store multiple disconnected family trees.
-    pub fn build_map(&mut self, root: Person) {
+    pub fn build_map(&mut self, root: &Person) {
         let mut depth_map = BTreeMap::<Person, Location>::new();
         //first index
         let mut cidx = self.idx(root).unwrap();
@@ -443,7 +491,6 @@ impl KinGraph {
 
         while !v2.is_empty() {
             visited_stack.push_back(cidx);
-            //add this to the map
             depth_map.insert(self.graph[cidx], cur_loc);
             let mut next_i = 0;
             let nit = self
@@ -486,12 +533,12 @@ impl KinGraph {
         }
         //print all the nodes in depth map
         for (k, v) in depth_map.iter() {
-            println!("Node {:} -> {:}", self.idx(*k).unwrap().index(), v);
+            println!("Node {:} -> {:}", self.idx(k).unwrap().index(), v);
         }
         self.depth_map = Some(depth_map);
     }
     ///Finds whether a person is related by blood to another
-    fn is_rrb(&self, p1: Person, p2: Person) -> bool {
+    fn is_rrb(&self, p1: &Person, p2: &Person) -> bool {
         //they are related by blood iff there is a path that of only child/parent edges between them
         let sps = all_simple_paths(
             &self.graph,
@@ -529,8 +576,8 @@ impl KinGraph {
     ///Finds all paths between two people, with an internal maximum of the order of the graph
     pub fn find_all_paths(
         &self,
-        p1: Person,
-        p2: Person,
+        p1: &Person,
+        p2: &Person,
     ) -> Result<Vec<Vec<(NodeIndex<usize>, Kind)>>> {
         let p1x = self.idx(p1).unwrap();
         let goalx = self.idx(p2).unwrap();
@@ -654,7 +701,7 @@ impl KinGraph {
     }
 
     ///Get NodeIndex from person
-    fn idx(&self, p: Person) -> Option<NodeIndex<usize>> {
+    fn idx(&self, p: &Person) -> Option<NodeIndex<usize>> {
         self.id_indx.get(&p.id).cloned()
     }
 }

@@ -10,10 +10,10 @@ fn setup_cousins() -> Result<KinGraph> {
     let p5 = kg.np(Sex::Female);
     let p6 = kg.np(Sex::Male);
     let p7 = kg.np(Sex::Female);
-    kg.make_child(p2, p0, p1)?;
-    kg.make_child(p3, p0, p1)?;
-    kg.make_child(p6, p2, p5)?;
-    kg.make_child(p7, p3, p4)?;
+    kg.make_child(&p2, &p0, &p1)?;
+    kg.make_child(&p3, &p0, &p1)?;
+    kg.make_child(&p6, &p2, &p5)?;
+    kg.make_child(&p7, &p3, &p4)?;
     Ok(kg)
 
     //p1, p2 parents of p3,p4
@@ -26,9 +26,9 @@ fn setup_half_siblings() -> Result<KinGraph> {
     let p3 = kg.np(Sex::Female);
     let p4 = kg.np(Sex::Male);
     //p3 is the child of p0 and p1
-    kg.make_child(p3, p0, p1)?;
+    kg.make_child(&p3, &p0, &p1)?;
     //p4 is the child of p1 and p2
-    kg.make_child(p4, p1, p2)?;
+    kg.make_child(&p4, &p1, &p2)?;
     //they should be cousins
     Ok(kg)
 }
@@ -45,10 +45,10 @@ fn setup_nn_au() -> Result<KinGraph> {
     let p7 = Person::new(Sex::Male);
     let p8 = Person::new(Sex::Female);
     let p9 = Person::new(Sex::Female);
-    kg.add_persons(&[p0, p1, p2, p3, p4]);
-    kg.add_sibling(p0, p1)?;
-    kg.add_parent(p1, p2)?;
-    kg.add_parent(p2, p3)?;
+    kg.add_persons(&[&p0, &p1, &p2, &p3, &p4]);
+    kg.add_sibling(&p0, &p1)?;
+    kg.add_parent(&p1, &p2)?;
+    kg.add_parent(&p2, &p3)?;
 
     Ok(kg)
 }
@@ -78,15 +78,15 @@ fn setup_basic_kg() -> Result<KinGraph> {
     kg.add_person(&p9);
 
     //make relationships
-    kg.add_relation(p0, p1, Kind::Parent)?;
-    kg.add_relation(p2, p1, Kind::Parent)?;
+    kg.add_relation(&p0, &p1, Kind::Parent)?;
+    kg.add_relation(&p2, &p1, Kind::Parent)?;
     //from here, we have enough information to deduce that p1 and p3 are Repat
     //In real life, we could run some preprocessor over the raw graph to make this and perhaps
     //other observations more explicit, and also to verify that the graph is well formed
     //(i.e. a node cannot have more than 2 parents, and those two cannot be of the same sex,
     // a node can't parent itself, and a node cannot be connected to another node more than once in incompatible ways )
     //give p2 a child
-    kg.add_relation(p1, p3, Kind::Parent).unwrap();
+    kg.add_relation(&p1, p3, Kind::Parent).unwrap();
     //and a spouse
     kg.add_relation(p1, p4, Kind::RP).unwrap();
     //p3 is parent of p7
@@ -151,12 +151,11 @@ pub fn half_siblings() {
     assert!(res);
 }
 #[test]
-pub fn incest(){
-   let mut kg=KinGraph::new();
+pub fn incest() {
+    let mut kg = KinGraph::new();
     use std::fs::File;
     let mut f = File::create("incest.dot").unwrap();
     render_to(&mut f, &kg);
-
 }
 #[test]
 pub fn nn_au() {
