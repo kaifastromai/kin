@@ -2,6 +2,7 @@ import init, { get_graph, get_relation, add_relation, append_from_dsl, Sex, Pers
 
 interface KinWasmPersonNode {
     id: number
+    name: string,
     sex: string,
     relations: WasmRelation[]
 
@@ -34,7 +35,9 @@ export enum RelationKind {
 class KinWasmGraph {
     nodes: KinWasmPersonNode[] | undefined
     constructor(json: string) {
-        this.nodes = JSON.parse(json).nodes
+        var js = JSON.parse(json).nodes
+        console.log("js is " + js)
+        this.nodes = js
     }
 }
 export class KinGraph {
@@ -94,7 +97,7 @@ export class KinGraph {
                     return { kind: relation!, id: r.id }
 
                 })
-                this.nodes.push({ id: node.id, sex: node.sex == "Male" ? KinSex.Male : KinSex.Female, name: undefined, relations: relations })
+                this.nodes.push({ id: node.id, sex: node.sex == "Male" ? KinSex.Male : KinSex.Female, name: node.name, relations: relations })
             }
         }
         //now we can update the relations
@@ -123,6 +126,8 @@ export class KinGraph {
 
                 })
                 our_node.relations = relations
+                console.log("Node name is " + node)
+                our_node.name = node.name
 
             }
         }

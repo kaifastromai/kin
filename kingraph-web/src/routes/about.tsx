@@ -14,22 +14,26 @@ export default function About() {
     var kin_dsl = String.raw`
   Izy M PARENT John M
   Gabe M PARENT John M
+  JILL F CHILD John M
+  CHILL M CHILD John M
   `;
     kg.load_from_dsl(kin_dsl);
     console.log(kg.nodes);
     var canvas_el = document.getElementById("pixi-canvas")!;
 
     var app = new PIXI.Application({
-      background: '#1099bb', resolution: window.devicePixelRatio,
+      background: '#2E2E2E',
+      resolution: window.devicePixelRatio,
+      autoDensity: true,
       antialias: true,
-      width: 1920 / 4
-      ,
-      height: 1080 / 4
-
+      width: 1920,
+      height: 1080
     });
+
     console.log("App created")
     canvas_el.appendChild(app.view);
     var kingraphView = new KinGraphView(app, kg);
+    kingraphView.render_grid(20, 20)
     kingraphView.render_graph(0)
 
   })

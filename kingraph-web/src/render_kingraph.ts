@@ -6,10 +6,50 @@ const SCALE = 5;
 export class KinGraphView {
     app: PIXI.Application;
     kin_graph: KinGraph;
+    x_delta: number = 5
+    y_delta: number = 5
     pixi_nodes: Map<number, PIXI.Container> = new Map<number, PIXI.Container>()
     constructor(app: PIXI.Application, kin_graph: KinGraph) {
         this.app = app
         this.kin_graph = kin_graph
+    }
+    //render a background grid
+    render_grid(x_lines: number, y_lines: number) {
+        var aspectR = this.app.screen.width / this.app.screen.height
+        var half_lengths = { x: this.app.screen.width / 2, y: this.app.screen.height / 2 }
+        var x_delta = this.app.screen.width / x_lines
+        var y_delta = this.app.screen.height / y_lines
+        x_delta /= aspectR
+        this.x_delta = x_delta
+        this.y_delta = y_delta
+        var extra_x = (this.app.screen.width - x_delta * x_lines) / x_delta
+        x_lines += Math.max(0, Math.floor(extra_x))
+
+        var grid = new PIXI.Graphics()
+        //get x,y opacity as a percentage of the distance from the center
+        function getOp(x: number, y: number) {
+            var x_op = 1 - Math.abs(x - half_lengths.x) / half_lengths.x
+            var y_op = 1 - Math.abs(y - half_lengths.y) / half_lengths.y
+            return { x: x_op, y: y_op }
+        }
+        for (var i = 0; i < x_lines; i++) {
+            var x = i * x_delta
+            var op = getOp(x, 0)
+            console.log("x op is " + op.x)
+            grid.lineStyle(1, 0xFFFFFF, op.x)
+            grid.moveTo(x, 0)
+            grid.lineTo(x, this.app.screen.height)
+        }
+
+        for (var i = 0; i < y_lines; i++) {
+            var y = i * y_delta
+            var op = getOp(0, y)
+            grid.lineStyle(1, 0xFFFFFF, op.y)
+            grid.moveTo(0, y)
+            grid.lineTo(this.app.screen.width, y)
+        }
+        this.app.stage.addChild(grid)
+
     }
     //Render the kingraph to pixi canvas
     //The idea is simple.
@@ -24,14 +64,12 @@ export class KinGraphView {
     //If it is a sibling or reproductive partner, then just draw a line
     //The nodes are rendered as circles with the name of the person inside
 
+
     render_graph(root_node: number = 0) {
         if (this.kin_graph.nodes == undefined) {
             console.log("no nodes")
             return
         }
-        //move transform to center of screen
-        this.app.stage.x = this.app.screen.width / 2
-        this.app.stage.y = this.app.screen.height / 2
         var root_render = this.render_node(root_node, { x: this.app.screen.width / 2, y: this.app.screen.height / 2 })
         //add to scene
         this.app.stage.addChild(root_render!)
@@ -105,6 +143,8 @@ export class KinGraphView {
         var p2 = this.kin_graph.nodes![node2]
         var pxnode1 = this.pixi_nodes.get(node1)!
         var pxnode2 = this.pixi_nodes.get(node2)!
+        var px1_gpos = pxnode1.getGlobalPosition()
+        var px2_gpos = pxnode2.getGlobalPosition()
         switch (relation.kind as RelationKind) {
             case RelationKind.Parent:
                 console.log("rendering parent edge")
@@ -112,12 +152,12 @@ export class KinGraphView {
                 var line = new PIXI.Graphics()
                 line.lineStyle(2, 0x00FF00)
                 //center on pxnode1
-                line.moveTo(pxnode1.x, pxnode1.y)
-                var point0 = new PIXI.Point(pxnode1.x, pxnode1.y)
-                var point1 = new PIXI.Point(pxnode1.x, pxnode1.y - 10 * SCALE)
+                line.moveTo(px1_gpos.x, px1_gpos.y)
+                var point0 = new PIXI.Point(px1_gpos.x, px1_gpos.y)
+                var point1 = new PIXI.Point(px1_gpos.x, px1_gpos.y + 10 * SCALE)
                 var side = (p2.sex as KinSex) == KinSex.Male ? -1 : 1
                 //move to the side
-                var point2 = new PIXI.Point(pxnode1.x + side * 10 * SCALE, pxnode1.y - 10 * SCALE)
+                var point2 = new PIXI.Point(px1_gpos.x + side * 10 * SCALE, px1_gpos.y + 10 * SCALE)
                 var polygon = new PIXI.Polygon([point0, point1, point2])
                 polygon.closeStroke = false
                 line.drawPolygon(polygon)
@@ -128,12 +168,13 @@ export class KinGraphView {
                 var line = new PIXI.Graphics()
                 line.lineStyle(2, 0x00FF00)
                 //center on pxnode1
-                line.moveTo(pxnode1.x, pxnode1.y)
-                var point0 = new PIXI.Point(pxnode1.x, pxnode1.y)
-                var point1 = new PIXI.Point(pxnode1.x, pxnode1.y + 10 * SCALE)
+
+                line.moveTo(px1_gpos.x, px1_gpos.y)
+                var point0 = new PIXI.Point(px1_gpos.x, px1_gpos.y)
+                var point1 = new PIXI.Point(px1_gpos.x, px1_gpos.y - 10 * SCALE)
                 var side = (p2.sex as KinSex) == KinSex.Male ? -1 : 1
                 //move to the side
-                var point2 = new PIXI.Point(pxnode1.x + side * 10 * SCALE, pxnode1.y + 10 * SCALE)
+                var point2 = new PIXI.Point(px1_gpos.x + side * 10 * SCALE, px1_gpos.y - 10 * SCALE)
                 var polygon = new PIXI.Polygon([point0, point1, point2])
                 return line
             default:
@@ -141,8 +182,8 @@ export class KinGraphView {
                 //just a line
                 var line = new PIXI.Graphics()
                 line.lineStyle(2, 0x000FF)
-                line.moveTo(pxnode1.x, pxnode1.y)
-                line.lineTo(pxnode2.x, pxnode2.y)
+                line.moveTo(px1_gpos.x, px1_gpos.y)
+                line.lineTo(px2_gpos.x, px2_gpos.y)
                 return line
         }
 
@@ -159,17 +200,19 @@ export class KinGraphView {
         console.log(node)
         //render circle with name
         var circle = new PIXI.Graphics()
-        circle.moveTo(center.x, center.y)
+
         circle.beginFill(0x000000)
         circle.drawCircle(0, 0, 10)
         circle.endFill()
-        var text = new PIXI.Text("NAME")
+        var text = new PIXI.Text(node.name!)
         //set text size to fit in circle
-        text.style.fontSize = 10
+        text.style.fontSize = 12
         text.style.fill = 0xffffff
         var container = new PIXI.Container()
         container.addChild(circle)
         container.addChild(text)
+        container.position.x = center.x
+        container.position.y = center.y
         return container
 
     }
