@@ -1,0 +1,8 @@
+digraph Test {
+    Izy_0[label="Izy_0"];
+    John_1[label="John_1"];
+    Izy_0 -> John_1[label="P"];
+    John_1 -> Izy_0[label="C"];
+    John_1 -> Izy_0[label="R"];
+    Izy_0 -> John_1[label="R"];
+}

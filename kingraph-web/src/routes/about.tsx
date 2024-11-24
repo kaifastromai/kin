@@ -21,20 +21,23 @@ export default function About() {
     console.log(kg.nodes);
     var canvas_el = document.getElementById("pixi-canvas")!;
 
+    var width = window.innerWidth;
+    var height = window.innerHeight;
     var app = new PIXI.Application({
-      background: '#2E2E2E',
+      background: '#FFFFFF',
+
       resolution: window.devicePixelRatio,
       autoDensity: true,
       antialias: true,
-      width: 1920,
-      height: 1080
+      width: width,
+      height: height,
     });
-
+    //print if it's using webgl or canvas
+    console.log(app.renderer.type)
     console.log("App created")
     canvas_el.appendChild(app.view);
     var kingraphView = new KinGraphView(app, kg);
     kingraphView.render_grid(20, 20)
-    kingraphView.render_graph(0)
 
   })
   return (

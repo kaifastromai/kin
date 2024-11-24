@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="CargoProjects">
+    <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="b0827822-4e2c-44d7-bbbd-0d810c02d64d" name="Changes" comment="">
+      <change afterPath="$PROJECT_DIR$/kingraph-web/.solid/inspect/manifest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/.solid/inspect/route-manifest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/.solid/inspect/ssr-manifest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/.solid/server/entry-server.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/.solid/server/favicon.ico" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/.solid/server/manifest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/.solid/server/server.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/assets/_...404_-ba604226.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/assets/about-cb84e933.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/assets/entry-client-35085e94.css" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/assets/entry-client-8483780e.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/assets/index-bf4a195d.js" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/assets/kin_bg-71eb751a.wasm" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/favicon.ico" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/manifest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/route-manifest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/public/ssr-manifest.json" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/kingraph-web/dist/server.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cousins.dot" beforeDir="false" afterPath="$PROJECT_DIR$/cousins.dot" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/half_siblings.dot" beforeDir="false" afterPath="$PROJECT_DIR$/half_siblings.dot" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kingraph-web/src/kin.ts" beforeDir="false" afterPath="$PROJECT_DIR$/kingraph-web/src/kin.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kingraph-web/src/render_kingraph.ts" beforeDir="false" afterPath="$PROJECT_DIR$/kingraph-web/src/render_kingraph.ts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/kingraph-web/src/routes/about.tsx" beforeDir="false" afterPath="$PROJECT_DIR$/kingraph-web/src/routes/about.tsx" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/nn_au.dot" beforeDir="false" afterPath="$PROJECT_DIR$/nn_au.dot" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kin_dsl.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/kin_dsl.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/kin_wasm.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/kin_wasm.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lib.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lib.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/states.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/states.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/test_kin.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/test_kin.rs" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="RsBuildProfile:test" />
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+  </component>
+  <component name="MacroExpansionManager">
+    <option name="directoryName" value="zj6b25o8" />
+  </component>
+  <component name="ProjectColorInfo"><![CDATA[{
+  "associatedIndex": 0
+}]]></component>
+  <component name="ProjectId" id="2mSJsBDY0ipXuKWnkjgYsWTmoLR" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Cargo.Test kin_dsl::tests::test_basic_dsl.executor": "Debug",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.rust.reset.selective.auto.import": "true",
+    "git-widget-placeholder": "master",
+    "last_opened_file_path": "/Users/okaifas/dev/kin",
+    "node.js.detected.package.eslint": "true",
+    "node.js.detected.package.tslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "node.js.selected.package.tslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "org.rust.cargo.project.model.PROJECT_DISCOVERY": "true",
+    "org.rust.first.attach.projects": "true",
+    "vue.rearranger.settings.migration": "true"
+  }
+}]]></component>
+  <component name="RunManager" selected="Cargo.Test kin_dsl::tests::test_basic_dsl">
+    <configuration name="Test kin" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="buildProfileId" value="test" />
+      <option name="command" value="test --workspace" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="Test kin_dsl::tests::test_basic_dsl" type="CargoCommandRunConfiguration" factoryName="Cargo Command" temporary="true">
+      <option name="command" value="test --package kin --lib kin_dsl::tests::test_basic_dsl -- --exact" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <envs />
+      <option name="emulateTerminal" value="true" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="buildTarget" value="REMOTE" />
+      <option name="backtrace" value="SHORT" />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
+      <method v="2">
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
+      </method>
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Cargo.Test kin_dsl::tests::test_basic_dsl" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="RustProjectSettings">
+    <option name="toolchainHomeDirectory" value="$USER_HOME$/.cargo/bin" />
+  </component>
+  <component name="SpellCheckerSettings" RuntimeDictionaries="0" Folders="0" CustomDictionaries="0" DefaultDictionary="application-level" UseSingleDictionary="true" transferred="true" />
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="b0827822-4e2c-44d7-bbbd-0d810c02d64d" name="Changes" comment="" />
+      <created>1727064247895</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1727064247895</updated>
+      <workItem from="1727064249011" duration="1193000" />
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
+          <url>file://$PROJECT_DIR$/src/lib.rs</url>
+          <line>563</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+    <watches-manager>
+      <configuration name="CargoCommandRunConfiguration">
+        <watch expression="stack.len()" language="Rust" />
+      </configuration>
+    </watches-manager>
+  </component>
+</project>

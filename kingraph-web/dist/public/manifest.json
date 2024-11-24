@@ -1,0 +1,50 @@
+{
+  "kin-wasm/kin_bg.wasm": {
+    "file": "assets/kin_bg-71eb751a.wasm",
+    "src": "kin-wasm/kin_bg.wasm"
+  },
+  "src/entry-client.css": {
+    "file": "assets/entry-client-35085e94.css",
+    "src": "src/entry-client.css"
+  },
+  "src/entry-client.tsx": {
+    "css": [
+      "assets/entry-client-35085e94.css"
+    ],
+    "dynamicImports": [
+      "src/routes/[...404].tsx",
+      "src/routes/about.tsx",
+      "src/routes/index.tsx"
+    ],
+    "file": "assets/entry-client-8483780e.js",
+    "isEntry": true,
+    "src": "src/entry-client.tsx"
+  },
+  "src/routes/[...404].tsx": {
+    "file": "assets/_...404_-ba604226.js",
+    "imports": [
+      "src/entry-client.tsx"
+    ],
+    "isDynamicEntry": true,
+    "src": "src/routes/[...404].tsx"
+  },
+  "src/routes/about.tsx": {
+    "assets": [
+      "assets/kin_bg-71eb751a.wasm"
+    ],
+    "file": "assets/about-cb84e933.js",
+    "imports": [
+      "src/entry-client.tsx"
+    ],
+    "isDynamicEntry": true,
+    "src": "src/routes/about.tsx"
+  },
+  "src/routes/index.tsx": {
+    "file": "assets/index-bf4a195d.js",
+    "imports": [
+      "src/entry-client.tsx"
+    ],
+    "isDynamicEntry": true,
+    "src": "src/routes/index.tsx"
+  }
+}

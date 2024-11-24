@@ -1,16 +1,12 @@
 use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-use std::{
-    cell::{Cell, OnceCell, RefCell},
-    sync::OnceLock,
-};
+use std::cell::RefCell;
 use wasm_bindgen::prelude::*;
 
 thread_local! {
     static KINGRAPH_INSTANCE: RefCell<KinGraph> = RefCell::new(KinGraph::new());
 }
-#[wasm_bindgen]
 #[derive(Deserialize, Serialize)]
 pub struct KinWasmGraph {
     nodes: Vec<PersonNode>,
@@ -20,16 +16,15 @@ impl KinWasmGraph {
         Self { nodes }
     }
 }
-#[wasm_bindgen]
 #[derive(Deserialize, Serialize)]
 pub struct PersonNode {
     pub id: u32,
     pub sex: Sex,
+    pub name: String,
     //vec of ids
     relations: Vec<Relation>,
 }
 
-#[wasm_bindgen]
 impl PersonNode {
     pub fn get_sex(&self) -> Sex {
         self.sex
@@ -39,8 +34,13 @@ impl PersonNode {
     }
 }
 impl PersonNode {
-    pub fn new(id: u32, sex: Sex, relations: Vec<Relation>) -> Self {
-        Self { sex, id, relations }
+    pub fn new(id: u32, sex: Sex, name: String, relations: Vec<Relation>) -> Self {
+        Self {
+            sex,
+            id,
+            relations,
+            name,
+        }
     }
 }
 #[wasm_bindgen]

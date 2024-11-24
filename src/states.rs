@@ -11,7 +11,6 @@ pub trait State: Any {
     //get a unique hash for this state.
     fn get_hash(&self) -> u64;
 }
-
 impl Clone for Box<dyn State> {
     fn clone(&self) -> Box<dyn State> {
         self.clone_box()
@@ -323,7 +322,7 @@ impl State for NCinLState {
                 sex: self.sex,
             }),
             Kind::RP => {
-                if kg.is_repat(kind.0, kind.2) {
+                if kg.is_repart(kind.0, kind.2) {
                     Box::new(NCinLState {
                         n: self.n,
                         sex: self.sex,
@@ -385,7 +384,7 @@ pub struct NCsnKState {
     pub sex: super::Sex,
 }
 impl State for NCsnKState {
-    fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
+    fn transition(&self, kind: (Nd, Kind, Nd), _kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(NCsnKState {
                 n: self.n,
@@ -525,7 +524,7 @@ pub struct RPState {
     pub sex: super::Sex,
 }
 impl State for RPState {
-    fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
+    fn transition(&self, kind: (Nd, Kind, Nd), _kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(StopState {}),
             Kind::Child => Box::new(NCinLState {
@@ -617,7 +616,7 @@ pub struct NNeniState {
     pub sex: super::Sex,
 }
 impl State for NNeniState {
-    fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
+    fn transition(&self, kind: (Nd, Kind, Nd), _kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(NCsnKState {
                 n: self.n,
@@ -682,7 +681,7 @@ pub struct NNNinLState {
 }
 
 impl State for NNNinLState {
-    fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
+    fn transition(&self, kind: (Nd, Kind, Nd), _kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => Box::new(NCsnKState {
                 n: self.n,
@@ -844,7 +843,7 @@ impl State for NAUinLState {
     fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
         let res: Box<dyn State> = match kind.1 {
             Kind::Parent => {
-                if !kg.is_rrb(kg.px(kind.0.index()), kg.px(kind.0.index())) {
+                if !kg.is_rbb(kg.px(kind.0.index()), kg.px(kind.0.index())) {
                     Box::new(StopState {})
                 } else {
                     Box::new(NAUState {
@@ -904,7 +903,7 @@ impl State for NAUinLState {
 }
 pub struct StopState {}
 impl State for StopState {
-    fn transition(&self, kind: (Nd, Kind, Nd), kg: &KinGraph) -> Option<Box<dyn State>> {
+    fn transition(&self, _kind: (Nd, Kind, Nd), _kg: &KinGraph) -> Option<Box<dyn State>> {
         None
     }
     fn print_canonical_name(&self) -> String {

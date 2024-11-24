@@ -1,6 +1,6 @@
 import init, { get_graph, get_relation, add_relation, append_from_dsl, Sex, Person } from '../kin-wasm/kin'
 
-interface KinWasmPersonNode {
+export interface KinWasmPersonNode {
     id: number
     name: string,
     sex: string,

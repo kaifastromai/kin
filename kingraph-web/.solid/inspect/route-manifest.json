@@ -1,0 +1,90 @@
+{
+  "/*404": {
+    "type": "route",
+    "script": {
+      "type": "script",
+      "href": "/assets/_...404_-ba604226.js"
+    },
+    "assets": [
+      {
+        "type": "script",
+        "href": "/assets/_...404_-ba604226.js"
+      },
+      {
+        "type": "script",
+        "href": "/assets/entry-client-8483780e.js"
+      },
+      {
+        "type": "style",
+        "href": "/assets/entry-client-35085e94.css"
+      }
+    ]
+  },
+  "/about": {
+    "type": "route",
+    "script": {
+      "type": "script",
+      "href": "/assets/about-cb84e933.js"
+    },
+    "assets": [
+      {
+        "type": "script",
+        "href": "/assets/about-cb84e933.js"
+      },
+      {
+        "type": "script",
+        "href": "/assets/entry-client-8483780e.js"
+      },
+      {
+        "type": "style",
+        "href": "/assets/entry-client-35085e94.css"
+      },
+      {
+        "type": "asset",
+        "href": "/assets/kin_bg-71eb751a.wasm"
+      }
+    ]
+  },
+  "/": {
+    "type": "route",
+    "script": {
+      "type": "script",
+      "href": "/assets/index-bf4a195d.js"
+    },
+    "assets": [
+      {
+        "type": "script",
+        "href": "/assets/index-bf4a195d.js"
+      },
+      {
+        "type": "script",
+        "href": "/assets/entry-client-8483780e.js"
+      },
+      {
+        "type": "style",
+        "href": "/assets/entry-client-35085e94.css"
+      }
+    ]
+  },
+  "entry-client": {
+    "type": "entry",
+    "script": {
+      "type": "script",
+      "href": "/assets/entry-client-8483780e.js"
+    },
+    "assets": [
+      {
+        "type": "script",
+        "href": "/assets/entry-client-8483780e.js"
+      },
+      {
+        "type": "style",
+        "href": "/assets/entry-client-35085e94.css"
+      }
+    ]
+  },
+  "index.html": {
+    "type": "entry",
+    "assets": []
+  }
+}

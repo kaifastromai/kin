@@ -1,0 +1,19 @@
+digraph Test {
+    Mike_0[label="Mike_0"];
+    Izy_1[label="Izy_1"];
+    John_2[label="John_2"];
+    Kalob_3[label="Kalob_3"];
+    Mary_4[label="Mary_4"];
+    Izy_1 -> Mike_0[label="P"];
+    Mike_0 -> Izy_1[label="C"];
+    Izy_1 -> John_2[label="R"];
+    John_2 -> Izy_1[label="R"];
+    John_2 -> Mike_0[label="P"];
+    Mike_0 -> John_2[label="C"];
+    Mary_4 -> Kalob_3[label="P"];
+    Kalob_3 -> Mary_4[label="C"];
+    Mary_4 -> John_2[label="R"];
+    John_2 -> Mary_4[label="R"];
+    John_2 -> Kalob_3[label="P"];
+    Kalob_3 -> John_2[label="C"];
+}

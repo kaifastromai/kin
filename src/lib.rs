@@ -14,13 +14,16 @@ mod uuid {
     }
 }
 
+use indexmap::IndexMap;
 use itertools::Itertools;
 type Nd = NodeIndex<usize>;
 use anyhow::*;
 use indexmap::IndexSet;
 use petgraph::algo::*;
 use petgraph::prelude::*;
+use petgraph::visit::IntoEdgesDirected;
 use states::*;
+use std::collections::BTreeSet;
 use std::collections::HashMap;
 use std::collections::HashSet;
 use std::iter::from_fn;
@@ -82,23 +85,23 @@ pub enum KinError {
 ///Describes the possible fundamental types of relationships (that is, all others
 /// can be represented as a combination of these).
 ///
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 
 pub enum Kind {
     Parent = 1,
     //The inverse of a parent
-    Child = -1,
+    Child = 3,
     //symmetric
     Sibling = 2,
     //Reproductive partner, symmetric
-    RP = 3,
+    RP = 4,
 }
 
 impl Kind {
-    fn get_value(&self) -> i32 {
+    fn get_value(&self) -> u32 {
         match self {
             Kind::Parent => 1,
-            Kind::Child => -1,
+            Kind::Child => 3,
             //This should probably be changed later, but for now this is easier...
             Kind::Sibling => 1,
             //Experiment with zero length repat
@@ -127,6 +130,14 @@ impl Kind {
             Kind::Child => CPRIME,
             Kind::Sibling => 0,
             Kind::RP => RPRIME,
+        }
+    }
+    fn get_inverse(&self) -> Kind {
+        match self {
+            Kind::Parent => Kind::Child,
+            Kind::Child => Kind::Parent,
+            Kind::Sibling => Kind::Sibling,
+            Kind::RP => Kind::RP,
         }
     }
     fn into_base_state(self, sex: Sex) -> Box<dyn State> {
@@ -219,7 +230,6 @@ impl Person {
     pub fn new(sex: Sex) -> Self {
         //assign random (hopefully) unique id.
         let id = uuid::gen_64();
-        //on 32bit os's/machines this will be a problem, but we'll think about that later
         Person {
             id: id as usize,
             sex,
@@ -271,7 +281,12 @@ impl<'a> dot::Labeller<'a, Nd, petgraph::graph::EdgeReference<'a, Kind, usize>> 
     }
 
     fn node_id(&'a self, n: &Nd) -> dot::Id<'a> {
-        dot::Id::new(format!("N{}", n.index())).unwrap()
+        dot::Id::new(format!(
+            "{}_{}",
+            self.graph.node_weight(*n).unwrap().name.clone(),
+            n.index()
+        ))
+        .unwrap()
     }
     fn edge_label(
         &'a self,
@@ -312,21 +327,35 @@ impl KinGraph {
     }
     fn add_person(&mut self, p: &Person) {
         let id = p.id;
-        let idx = self.graph.add_node(*p);
+        let idx = self.graph.add_node(p.clone());
         self.id_indx.insert(id, idx);
     }
     fn add_persons(&mut self, ps: &[&Person]) {
         for p in ps {
-            self.add_person(*p);
+            self.add_person(p);
         }
     }
     ///Adds a new person to the graph.
     fn np(&mut self, sex: Sex) -> Person {
         let p = Person::new(sex);
         let id = p.id;
-        let idx = self.graph.add_node(p);
+        let idx = self.graph.add_node(p.clone());
         self.id_indx.insert(id, idx);
         p
+    }
+    fn np_with_name(&mut self, sex: Sex, name: String) -> Person {
+        let p = Person {
+            id: 0,
+            name,
+            sex,
+            is_shadow: false,
+        };
+        //let id = p.id;
+        let idx = self.graph.add_node(p);
+        let person_mut = self.graph.node_weight_mut(idx).unwrap();
+        person_mut.id = idx.index();
+        self.id_indx.insert(idx.index(), idx);
+        person_mut.clone()
     }
     ///Adds kind between p1->p2, and kind^-1 (inverse kind) between p2->p1. If such an edge already exists between these nodes,
     /// it exits silently, not adding the edge
@@ -379,10 +408,11 @@ impl KinGraph {
                     },
                 });
             }
-            let person_at = self.graph[p];
+            let person_at = &self.graph[p];
             persons.push(kin_wasm::PersonNode::new(
                 p.index() as u32,
                 person_at.sex,
+                person_at.name.clone(),
                 relations,
             ));
         }
@@ -398,7 +428,6 @@ impl KinGraph {
     fn add_parent(&mut self, p: &Person, c: &Person) -> Result<()> {
         let px = self.idx(p).unwrap();
         let cx = self.idx(c).unwrap();
-
         //get the number of parents the child has
         let parents = self
             .graph
@@ -407,8 +436,16 @@ impl KinGraph {
             .collect::<Vec<_>>();
 
         let plen = parents.len();
+        //make sure p1 is not already the child of p2
+        if self.is_parent(cx, px) {
+            return Err(KinError::InvalidRelation {
+                p1: px.index(),
+                p2: cx.index(),
+            }
+            .into());
+        }
         if plen >= 2 {
-            //don't add. Too many parents
+            //don't add too many parents
             return Err(KinError::AlreadyTwoParents { p: cx.index() }.into());
         } else {
             if plen == 1 {
@@ -442,6 +479,10 @@ impl KinGraph {
             return Ok(vec![Box::new(StopState {})]);
         }
         let paths = self.find_all_paths(p1, p2)?;
+        if paths.is_empty() {
+            println!("No paths found between {:?} and {:?}", p1, p2);
+            return Ok(vec![Box::new(StopState {})]);
+        }
         let mut names = HashSet::new();
         for p in paths {
             names.insert(self.calculate_cr_single_path(self.idx(p1).unwrap(), &p)?);
@@ -469,77 +510,9 @@ impl KinGraph {
         Ok(sm.get_current_state())
     }
 
-    ///This builds the depth map. It must be done after all the relations are added.
-    /// Starts at the given root person, instead of some global.
-    ///  This allows us to store multiple disconnected family trees.
-    pub fn build_map(&mut self, root: &Person) {
-        let mut depth_map = BTreeMap::<Person, Location>::new();
-        //first index
-        let mut cidx = self.idx(root).unwrap();
-        let nbs = self.graph.neighbors_directed(cidx, Direction::Outgoing);
-        //find using depth-first search
-        let mut visited_stack = VecDeque::<NodeIndex<usize>>::new();
-        //used to back track
-        let mut v2 = VecDeque::<NodeIndex<usize>>::new();
-        //We use this to keep track of the depth when we reset to a previous node in the depth first search
-        let mut depth_set = BTreeMap::<usize, i32>::new();
-
-        v2.push_back(cidx);
-
-        //our current depth
-        let mut cur_loc = Location { d: 0, w: 0 };
-
-        while !v2.is_empty() {
-            visited_stack.push_back(cidx);
-            depth_map.insert(self.graph[cidx], cur_loc);
-            let mut next_i = 0;
-            let nit = self
-                .graph
-                .neighbors_directed(cidx, Direction::Outgoing)
-                .collect::<Vec<NodeIndex<usize>>>();
-
-            //This is known to be 1 (an invariant) (only 1 outgoing edge between two nodes), if broken, our graph is illformed
-            //We only want to follow the paths that are even or climb the ancestor tree (the links that make us the child)
-            let e = |n: usize| self.graph.edges_connecting(cidx, nit[n]).next().unwrap();
-
-            while next_i < nit.len() && (visited_stack.contains(&nit[next_i])) {
-                next_i += 1;
-            }
-
-            //We've searched all neighbors, and already visited them
-            if next_i == nit.len() {
-                //go back, we're done
-                cidx = v2.pop_back().unwrap();
-                cur_loc = *depth_map.get(&self.graph[cidx]).unwrap();
-                continue;
-            }
-
-            //if the chosen path is Child, then our depth decreases
-            //else if the chosen path is a sibling or a repat, our sideways drift increases
-            match e(next_i).weight() {
-                //Depth
-                Kind::Child => {
-                    cur_loc.d += 1;
-                }
-                Kind::Parent => {
-                    cur_loc.d -= 1;
-                }
-                //Sideways
-                k => cur_loc.w += k.get_value(),
-            }
-
-            v2.push_back(cidx);
-            cidx = nit[next_i];
-        }
-        //print all the nodes in depth map
-        for (k, v) in depth_map.iter() {
-            println!("Node {:} -> {:}", self.idx(k).unwrap().index(), v);
-        }
-        self.depth_map = Some(depth_map);
-    }
     ///Finds whether a person is related by blood to another
-    fn is_rrb(&self, p1: &Person, p2: &Person) -> bool {
-        //they are related by blood iff there is a path that of only child/parent edges between them
+    fn is_rbb(&self, p1: &Person, p2: &Person) -> bool {
+        //they are related by blood iff there is a path that consists of only child/parent edges between them
         let sps = all_simple_paths(
             &self.graph,
             self.idx(p1).unwrap(),
@@ -568,7 +541,7 @@ impl KinGraph {
         println!("Result {:?}", res);
         res
     }
-    fn is_repat(&self, p1: Nd, p2: Nd) -> bool {
+    fn is_repart(&self, p1: Nd, p2: Nd) -> bool {
         self.graph
             .edges_connecting(p1, p2)
             .any(|e| *e.weight() == Kind::RP)
@@ -581,92 +554,113 @@ impl KinGraph {
     ) -> Result<Vec<Vec<(NodeIndex<usize>, Kind)>>> {
         let p1x = self.idx(p1).unwrap();
         let goalx = self.idx(p2).unwrap();
-        let mut paths = Vec::<Vec<(NodeIndex<usize>, Kind)>>::new();
-
-        // how many nodes are allowed in simple path up to target node
-        // it is min/max allowed path length minus one, because it is more appropriate when implementing lookahead
-        // than constantly add 1 to length of current path
-        //-----Taken and modified from original authors of petgraph, Cephas Jun 12, 2022
-        let max_length = self.graph.node_count() - 1;
-        let min_length = 1;
-
-        // list of visited nodes
-        let mut visited: IndexSet<NodeIndex<usize>> = [p1x].into();
-        // list of children of currently exploring path nodes,
-        // last elem is list of childs of last visited node
-        let mut stack = vec![self.graph.neighbors_directed(p1x, Outgoing)];
-        let it: FromFn<_> = from_fn(move || {
-            while let Some(children) = stack.last_mut() {
-                if let Some(child) = children.next() {
-                    if visited.len() < max_length {
-                        if child == goalx {
-                            if visited.len() >= min_length {
-                                let path = visited
-                                    .iter()
-                                    .cloned()
-                                    .chain(std::iter::once(goalx))
-                                    .collect::<Vec<_>>();
-                                return Some(path);
-                            }
-                        } else if !visited.contains(&child) {
-                            visited.insert(child);
-                            stack.push(self.graph.neighbors_directed(child, Outgoing));
-                        }
-                    } else {
-                        if (child == goalx || children.any(|v| v == goalx))
-                            && visited.len() >= min_length
-                        {
-                            let path = visited
-                                .iter()
-                                .cloned()
-                                .chain(std::iter::once(goalx))
-                                .collect::<_>();
-                            return Some(path);
-                        }
-                        stack.pop();
-                        visited.pop();
-                    }
-                } else {
-                    stack.pop();
-                    visited.pop();
-                }
-            }
-            None
-        });
-
-        //-------End of taken code----
-        // let sps = simple_paths::all_simple_paths(&self.graph, p1x, goalx, 0, None)
-        //     .collect::<Vec<Vec<_>>>();
-        let sps = it.collect::<Vec<_>>();
-
-        //reconstruct all the path kinds from the sps
-        let mut rc_paths = |path: &Vec<NodeIndex<usize>>| {
-            let mut p = Vec::<(NodeIndex<usize>, Kind)>::new();
-            for i in 0..path.len() - 1 {
-                let e = self
-                    .graph
-                    .edges_connecting(path[i], path[i + 1])
-                    .collect::<Vec<_>>();
-                //simple case, only one outgoing edge between two nodes
-                if e.len() == 1 {
-                    p.push((path[i], *e[0].weight()));
-                }
-            }
-            paths.push(p);
-        };
-        for p in sps {
-            rc_paths(&p);
+        //make sure that p1x!=goalx
+        if p1x == goalx {
+            return Ok(vec![vec![]]);
         }
+        //the visited set indicates which node and edge index we have already visited
+        let mut visited = Vec::<(NodeIndex<usize>, usize)>::new();
+        let mut paths = Vec::new();
+        //the stack is a stack of nodes and the edge index we are currently at
+        let mut stack = VecDeque::new();
 
+        for (edge_idx, _) in self
+            .graph
+            .edges_directed(p1x, Direction::Outgoing)
+            .enumerate()
+        {
+            stack.push_back((p1x, edge_idx));
+        }
+        let mut this_path: Vec<(NodeIndex<usize>, usize)> = vec![];
+        let mut current_indx = p1x;
+        while !stack.is_empty() {
+            tracing::info!(stack=?stack);
+            let (source, edge_idx) = stack.pop_back().unwrap();
+            if let Some(l) = this_path.last_mut() {
+                if l.0 == source {
+                    l.1 = edge_idx
+                } else {
+                    this_path.push((source, edge_idx))
+                }
+            } else {
+                this_path.push((source, edge_idx))
+            }
+            tracing::info!(this_path=?this_path);
+            let next = self
+                .graph
+                .edges_directed(source, Direction::Outgoing)
+                .nth(edge_idx)
+                .unwrap();
+            visited.push((source, edge_idx));
+            tracing::info!(visited = ?(source, edge_idx));
+            tracing::info!(next = ?next.target(), source=?source);
+            //if we have reached the goal, we can add the path to the paths vec
+            if next.target() == goalx {
+                tracing::info!(source=?source, target=?next.target(), "Found target");
+                let path = this_path
+                    .iter()
+                    .map(|n1| {
+                        let edge = self
+                            .graph
+                            .edges_directed(n1.0, Direction::Outgoing)
+                            .nth(n1.1);
+                        let edge = edge.unwrap();
+                        (n1.0, *edge.weight())
+                    })
+                    .collect();
+                tracing::info!(final_path=?path,goal=?goalx,"Reached goal");
+                paths.push(path);
+                this_path.pop();
+                visited.pop();
+            } else {
+                //add all the unvisited nodes to the stack
+                for (edge_idx, e) in self
+                    .graph
+                    .edges_directed(next.target(), Direction::Outgoing)
+                    .enumerate()
+                {
+                    if !visited.contains(&(next.target(), edge_idx)) {
+                        tracing::info!(node = ?e.target(), rel=?e.weight(),source=?next.target(), "Considering path", );
+                        //do not allow looping back to the same node via a inverse edge
+                        if (e.target() == source && *e.weight() == next.weight().get_inverse()) {
+                            tracing::info!(source=?source,node1=?next.target(), node2=?e.target(), relation=?*e.weight(), "Skipping child edge");
+                            continue;
+                        }
+                        stack.push_back((next.target(), edge_idx));
+                    } else {
+                        tracing::info!(node = ?e.target(), rel=?e.weight(), source=?next.target(), "Not considered because it is already in visited");
+                        this_path.pop();
+                    }
+                }
+            }
+        }
+        if paths.is_empty() {
+            tracing::warn!("No paths found")
+        }
+        for p in &paths {
+            tracing::info!(path=?p);
+        }
         Ok(paths)
     }
-    ///Checks if p1 is a child of p2
+    ///Checks if p1 is a parent of p2
     pub fn is_parent(&self, p1: Nd, p2: Nd) -> bool {
         let p = p1;
         let c = p2;
         let mut res = false;
         for e in self.graph.edges_directed(p, Outgoing) {
-            if *e.weight() == Kind::Child && e.source() == c {
+            if *e.weight() == Kind::Parent && e.target() == c {
+                res = true;
+            }
+        }
+        res
+    }
+    ///Checks if p1 is a child of p2
+    pub fn is_child(&self, p1: Nd, p2: Nd) -> bool {
+        let p = p1;
+        let c = p2;
+        let mut res = false;
+        for e in self.graph.edges_directed(p, Outgoing) {
+            if *e.weight() == Kind::Child && e.target() == c {
                 res = true;
             }
         }

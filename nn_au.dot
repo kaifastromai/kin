@@ -1,13 +1,13 @@
 digraph Test {
-    N0[label="N0"];
-    N1[label="N1"];
-    N2[label="N2"];
-    N3[label="N3"];
-    N4[label="N4"];
-    N1 -> N0[label="S"];
-    N0 -> N1[label="S"];
-    N1 -> N2[label="P"];
-    N2 -> N1[label="C"];
-    N2 -> N3[label="P"];
-    N3 -> N2[label="C"];
+    unkn_0[label="unkn_0"];
+    unkn_1[label="unkn_1"];
+    unkn_2[label="unkn_2"];
+    unkn_3[label="unkn_3"];
+    unkn_4[label="unkn_4"];
+    unkn_1 -> unkn_0[label="S"];
+    unkn_0 -> unkn_1[label="S"];
+    unkn_1 -> unkn_2[label="P"];
+    unkn_2 -> unkn_1[label="C"];
+    unkn_2 -> unkn_3[label="P"];
+    unkn_3 -> unkn_2[label="C"];
 }
